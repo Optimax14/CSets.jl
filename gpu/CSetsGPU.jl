@@ -56,6 +56,8 @@ struct Target{V}
     base::V
     prex::V     # pre.xadj
     prea::V     # pre.adjncy
+    nty::Int32  # number of types (typx has nty + 1 entries per target)
+    na::Int32   # number of arcs (base has na + 1 entries per target)
 end
 
 Adapt.@adapt_structure Target
@@ -250,35 +252,77 @@ function plan(D::Decomposition{I}) where {I}
     return P, Int(maximum(m; init=0)), Int(maxo)
 end
 
-function target(Y::Instance{I}) where {I}
-    ny = Y.dom.nu; nf = Y.dom.ne; na = Y.cod.ne
-    ysrc = Vector{I}(undef, nf)
+#
+# The (normalized) targets Y_1 ... Y_k as one instance: element y of
+# Y_q is oy[q] + y. Per target, typx and base are blocks of nty + 1 and
+# na + 1 entries; base also carries the offset of Y_q's preimage slots.
+#
+function target(Ys::Vector{Instance{I}}) where {I}
+    xadj = J[]; adjncy = J[]; vtx = J[]; typx = J[]; base = J[]; prex = J[]; prea = J[]
+    oy = 0; of = 0; op = 0
+    Y1 = first(Ys)
+    nty = Y1.cod.nu; na = Y1.cod.ne
 
-    for y in oneto(ny), p in Y.dom.xadj[y]:Y.dom.xadj[y + one(I)] - one(I)
-        ysrc[p] = y
+    for Y in Ys
+        ny = Y.dom.nu; nf = Y.dom.ne
+        ysrc = Vector{I}(undef, nf)
+
+        for y in oneto(ny), p in Y.dom.xadj[y]:Y.dom.xadj[y + one(I)] - one(I)
+            ysrc[p] = y
+        end
+
+        typ = invvtx(Y)
+        bq = Vector{I}(undef, na + one(I))
+        bq[1] = 1
+
+        for a in oneto(na)
+            d = Y.cod.adjncy[a]
+            bq[a + 1] = bq[a] + typ.xadj[d + 1] - typ.xadj[d]
+        end
+
+        ykey = Vector{I}(undef, nf)
+
+        for e in oneto(nf)
+            a = Y.arc[e]
+            ykey[e] = bq[a] + Y.dom.adjncy[e] - typ.xadj[Y.cod.adjncy[a]]
+        end
+
+        nslot = bq[na + 1] - one(I)
+        pre = invmap(nslot, nf, ykey)
+
+        for y in oneto(ny)
+            push!(xadj, Y.dom.xadj[y] + of)
+            push!(vtx, Y.vtx[y])
+        end
+
+        for e in oneto(nf)
+            push!(adjncy, Y.dom.adjncy[e] + oy)
+        end
+
+        for u in 1:nty + 1
+            push!(typx, typ.xadj[u] + oy)
+        end
+
+        for a in 1:na + 1
+            push!(base, bq[a] + op)
+        end
+
+        for l in oneto(nslot)
+            push!(prex, pre.xadj[l] + of)
+        end
+
+        for p in oneto(nf)
+            push!(prea, ysrc[pre.adjncy[p]] + oy)
+        end
+
+        oy += ny; of += nf; op += nslot
     end
 
-    typ = invvtx(Y)
-    base = Vector{I}(undef, na + one(I))
-    base[1] = 1
-
-    for a in oneto(na)
-        d = Y.cod.adjncy[a]
-        base[a + 1] = base[a] + typ.xadj[d + 1] - typ.xadj[d]
-    end
-
-    ykey = Vector{I}(undef, nf)
-
-    for e in oneto(nf)
-        a = Y.arc[e]
-        ykey[e] = base[a] + Y.dom.adjncy[e] - typ.xadj[Y.cod.adjncy[a]]
-    end
-
-    pre = invmap(base[na + 1] - one(I), nf, ykey)
-    prea = [ysrc[pre.adjncy[p]] for p in oneto(nf)]
+    push!(xadj, of + 1)
+    push!(prex, of + 1)
     v(x) = CuArray{J}(collect(x))
-    return Target(v(Y.dom.xadj), v(Y.dom.adjncy), v(Y.vtx), v(Y.cod.xadj), v(Y.cod.adjncy),
-        v(typ.xadj), v(base), v(pre.xadj), v(prea))
+    return Target(v(xadj), v(isempty(adjncy) ? J[0] : adjncy), v(vtx), v(Y1.cod.xadj), v(Y1.cod.adjncy),
+        v(typx), v(base), v(prex), v(isempty(prea) ? J[0] : prea), J(nty), J(na))
 end
 
 @inline function image(Y, y, a)
@@ -296,7 +340,7 @@ end
 #      extension to h
 #
 function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, next,
-        rkey, rdep, rval, cap, cnt, scr, maxm, maxo, mode, icnt, budget, abort, aflag)
+        rkey, rdep, rval, cap, cnt, scr, maxm, maxo, mode, icnt, budget, abort, aflag, iq, ntJ, nuJ)
     tid = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
     nthr = gridDim().x * blockDim().x
     one_ = one(J)
@@ -310,6 +354,15 @@ function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, nex
 
         t = ibag[i]
         d = idep[i]
+        #
+        # target q: its tables, its h, its blocks of typx and base
+        #
+        q = iq[i]
+        qo = (q - one_) * ntJ
+        tq = qo + t
+        ho = (q - one_) * nuJ
+        yo = (q - one_) * (Y.nty + one_)
+        ao = (q - one_) * (Y.na + one_)
         m = P.m[t]
         s = P.s[t]
         po = P.xpos[t]
@@ -323,7 +376,7 @@ function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, nex
 
         if mode == J(1)
             if d >= s || (budget > zero(J) && iszero(abort[i]))
-                emit!(rkey, rdep, rval, cap, cnt, ncol, ipre, W, i, zero(J), t, d, d, scr, nthr, tid, HP, true)
+                emit!(rkey, rdep, rval, cap, cnt, ncol, ipre, W, i, zero(J), tq, d, d, scr, nthr, tid, HP, true)
                 icnt[i] = one_
                 continue
             end
@@ -339,23 +392,23 @@ function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, nex
             o = P.slo[l]
             c = P.slc[l]
             scr[(RLO + o - one_) * nthr + tid] = one_
-            scr[(RHI + o - one_) * nthr + tid] = ncol[c]
+            scr[(RHI + o - one_) * nthr + tid] = ncol[qo + c]
         end
 
         for k in one_:d
             if mode == J(2)
-                v = h[P.ord[po + k]]
+                v = h[ho + P.ord[po + k]]
             else
                 v = ipre[(i - one_) * W + k]
             end
 
             scr[(HP + k - one_) * nthr + tid] = v
-            narrow!(P, tab, xtab, scr, nthr, tid, RLO, RHI, pp, k, v, zero(J))
+            narrow!(P, tab, xtab, scr, nthr, tid, RLO, RHI, pp, k, v, zero(J), qo)
         end
 
         if mstop <= d
             if mode != J(2)
-                emit!(rkey, rdep, rval, cap, cnt, ncol, ipre, W, i, zero(J), t, E, E, scr, nthr, tid, HP, false)
+                emit!(rkey, rdep, rval, cap, cnt, ncol, ipre, W, i, zero(J), tq, E, E, scr, nthr, tid, HP, false)
                 icnt[i] = one_
             end
 
@@ -384,13 +437,13 @@ function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, nex
                 else
                     if kd == J(2)
                         a = P.barc[po + k]
-                        l = Y.base[a] + scr[(HP + P.bpos[po + k] - one_) * nthr + tid] - Y.typx[Y.coda[a]]
+                        l = Y.base[ao + a] + scr[(HP + P.bpos[po + k] - one_) * nthr + tid] - Y.typx[yo + Y.coda[a]]
                         cu = Y.prex[l]
                         st = Y.prex[l + one_] - one_
                     else
                         u = P.vtx[po + k]
-                        cu = Y.typx[u]
-                        st = Y.typx[u + one_] - one_
+                        cu = Y.typx[yo + u]
+                        st = Y.typx[yo + u + one_] - one_
                     end
 
                     for j in P.xnar[pp + k]:P.xnar[pp + k + one_] - one_
@@ -437,7 +490,7 @@ function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, nex
                     ii = P.nari[j]
                     o = P.naro[j]
                     w = P.s[l]
-                    b = xtab[l] + ii - one_
+                    b = xtab[qo + l] + ii - one_
                     y = tab[b + (c - one_) * w]
                     lo = c
                     hi = c + one_
@@ -489,7 +542,7 @@ function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, nex
 
                 if valid && P.xnar[pp + k] < P.xnar[pp + k + one_]
                     skip = kd == J(4) ? ag : zero(J)
-                    valid = narrow!(P, tab, xtab, scr, nthr, tid, RLO, RHI, pp, k, y, skip)
+                    valid = narrow!(P, tab, xtab, scr, nthr, tid, RLO, RHI, pp, k, y, skip, qo)
                 end
 
                 if valid
@@ -511,12 +564,12 @@ function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, nex
                     fresh = true
                 elseif mode == J(2)
                     for kk in s + one_:m
-                        h[P.ord[po + kk]] = scr[(HP + kk - one_) * nthr + tid]
+                        h[ho + P.ord[po + kk]] = scr[(HP + kk - one_) * nthr + tid]
                     end
 
                     break
                 else
-                    emit!(rkey, rdep, rval, cap, cnt, ncol, ipre, W, i, seq, t, E, E, scr, nthr, tid, HP, false)
+                    emit!(rkey, rdep, rval, cap, cnt, ncol, ipre, W, i, seq, tq, E, E, scr, nthr, tid, HP, false)
                     seq += one_
 
                     if iszero(E)
@@ -546,7 +599,7 @@ function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, nex
     return
 end
 
-@inline function narrow!(P, tab, xtab, scr, nthr, tid, RLO, RHI, pp, k, v, skip)
+@inline function narrow!(P, tab, xtab, scr, nthr, tid, RLO, RHI, pp, k, v, skip, qo)
     one_ = one(J)
 
     @inbounds for j in P.xnar[pp + k]:P.xnar[pp + k + one_] - one_
@@ -558,7 +611,7 @@ end
         i = P.nari[j]
         o = P.naro[j]
         s = P.s[c]
-        b = xtab[c] + i - one_
+        b = xtab[qo + c] + i - one_
         lo = scr[(RLO + o + i - J(2)) * nthr + tid]
         hi = scr[(RHI + o + i - J(2)) * nthr + tid] + one_
 
@@ -596,10 +649,10 @@ end
     return true
 end
 
-@inline function emit!(rkey, rdep, rval, cap, cnt, ncol, ipre, W, i, seq, t, E, d, scr, nthr, tid, HP, passthrough)
+@inline function emit!(rkey, rdep, rval, cap, cnt, ncol, ipre, W, i, seq, tq, E, d, scr, nthr, tid, HP, passthrough)
     one_ = one(J)
     r = CUDA.atomic_add!(pointer(cnt), one_) + one_
-    CUDA.atomic_add!(pointer(ncol, t), one_)
+    CUDA.atomic_add!(pointer(ncol, tq), one_)
 
     @inbounds if r <= cap
         rkey[r] = (UInt64(i) << 32) | UInt64(seq)
@@ -624,7 +677,7 @@ end
 #
 # in the round's output: items in order, each item's columns in order.
 #
-function gatherkernel!(iscan, rkey, rdep, rval, W, R, ibag, P, tab, xtab, first, nbag, ndep, npre, mode)
+function gatherkernel!(iscan, rkey, rdep, rval, W, R, ibag, P, tab, xtab, first, nbag, ndep, npre, mode, iq, niq, ntJ)
     rec = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
     one_ = one(J)
 
@@ -639,13 +692,15 @@ function gatherkernel!(iscan, rkey, rdep, rval, W, R, ibag, P, tab, xtab, first,
         end
 
         t = ibag[i]
+        q = iq[i]
+        tq = (q - one_) * ntJ + t
 
         if mode == zero(J)
             #
-            # column r - first[t] of the table of t
+            # column r - first[t] of the table of t (for target q)
             #
             s = P.s[t]
-            b = xtab[t] + (r - one_ - first[t]) * s
+            b = xtab[tq] + (r - one_ - first[tq]) * s
 
             for k in one_:s
                 tab[b + k - one_] = rval[(rec - one_) * W + k]
@@ -655,6 +710,7 @@ function gatherkernel!(iscan, rkey, rdep, rval, W, R, ibag, P, tab, xtab, first,
             # a new item
             #
             nbag[r] = t
+            niq[r] = q
             ndep[r] = rdep[rec]
 
             for k in one_:rdep[rec]
@@ -773,6 +829,7 @@ struct Prepared{I, A, V}
     dnd::V
     dns::V
     mlev::Int
+    dnflat::Vector{J}
 end
 
 function prepare(D::Decomposition{I}) where {I}
@@ -808,25 +865,38 @@ function prepare(D::Decomposition{I}) where {I}
     dnd = CuVector{J}(dnflat)
     dns = CuVector{J}(J[Pc.s[t] for t in dnflat])
     mlev = max(maximum(length, up), maximum(length, down))
-    return Prepared{I, typeof(P), typeof(upd)}(D, Pc, P, maxm, maxo, W, up, upptr, dnptr, upd, dnd, dns, mlev)
+    return Prepared{I, typeof(P), typeof(upd)}(D, Pc, P, maxm, maxo, W, up, upptr, dnptr, upd, dnd, dns, mlev, dnflat)
 end
 
 function color(D::Decomposition{I}, Y::Instance{I}; kw...) where {I}
     return color(prepare(D), Y; kw...)
 end
 
-function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=256, threads=128, budget=1 << 14, maxsplit=6, stats=nothing, keep=false) where {I}
+function color(prep::Prepared{I}, Y::Instance{I}; kw...) where {I}
+    r = color(prep, [Y]; kw...)
+    return r isa Vector ? r[1] : r
+end
+
+#
+# Many targets in one pass: every work item carries a target q, and
+# bag t has a table for each target (index (q - 1) * nt + t). Returns
+# one result per target (a homomorphism or nothing).
+#
+function color(prep::Prepared{I}, Ys::Vector{<:Instance{I}}; nitems=0, maxround=8, minwork=256, threads=128, budget=1 << 14, maxsplit=6, stats=nothing, keep=false) where {I}
     tst = time_ns()
     D = prep.D
     Pc, P, maxm, maxo, W = prep.Pc, prep.P, prep.maxm, prep.maxo, prep.W
-    up, upptr, dnptr, upd, dnd, dns, mlev = prep.up, prep.upptr, prep.dnptr, prep.upd, prep.dnd, prep.dns, prep.mlev
-    Y, yord = normalize(Y)
+    up, upptr, dnptr, mlev = prep.up, prep.upptr, prep.dnptr, prep.mlev
+    k = length(Ys)
+    nz = [normalize(Y) for Y in Ys]
+    Yn = Instance{I}[z[1] for z in nz]
+    yords = [z[2] for z in nz]
+    oys = cumsum([0; [Y.dom.nu for Y in Yn]])
     X = D.inst
     nu = X.dom.nu
     nt = D.tree.nu
-    ny = Y.dom.nu
     tpl = time_ns() - tst
-    T = target(Y)
+    T = target(Yn)
 
     dev = device()
     nsm = attribute(dev, CUDA.DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT)
@@ -834,38 +904,53 @@ function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=
     nthr = blocks * threads
     nitems = iszero(nitems) ? 8nthr : nitems
     scr = CuVector{J}(undef, (5maxm + 2maxo) * nthr)
-    ncol = CUDA.zeros(J, nt)
-    xtab = CUDA.zeros(J, nt)
-    first = CUDA.zeros(J, nt)
+    ncol = CUDA.zeros(J, k * nt)
+    xtab = CUDA.zeros(J, k * nt)
+    first = CUDA.zeros(J, k * nt)
     tab = CuVector{J}(undef, 1 << 20)
-    h = CUDA.zeros(J, nu)
+    h = CUDA.zeros(J, k * nu)
     cnt = CUDA.zeros(J, 1)
     next = CUDA.zeros(J, 1)
-    rep = CuVector{J}(undef, 2mlev + 1)
-    reph = Vector{J}(undef, 2mlev + 1)
+    mp = mlev * k
+    rep = CuVector{J}(undef, 2mp + 1)
+    reph = Vector{J}(undef, 2mp + 1)
     st = Stage(STAGE[], W)
-    icap = max(1 << 16, mlev)
-    ibag = CuVector{J}(undef, icap); idep = CuVector{J}(undef, icap); ipre = CuVector{J}(undef, icap * W)
-    nbag = CuVector{J}(undef, icap); ndep = CuVector{J}(undef, icap); npre = CuVector{J}(undef, icap * W)
+    icap = max(1 << 16, mp)
+    ibag = CuVector{J}(undef, icap); idep = CuVector{J}(undef, icap); ipre = CuVector{J}(undef, icap * W); iq = CuVector{J}(undef, icap)
+    nbag = CuVector{J}(undef, icap); ndep = CuVector{J}(undef, icap); npre = CuVector{J}(undef, icap * W); niq = CuVector{J}(undef, icap)
     icnt = CuVector{J}(undef, icap); iscan = CuVector{J}(undef, icap)
     abort = CUDA.zeros(J, icap); aflag = CUDA.zeros(J, 1); status = Vector{J}(undef, 1)
     ntab = 0
     sh = Vector(Pc.s)
-    ncolh = zeros(Int, nt)
-    ntyp = [count(==(u), Y.vtx) for u in 1:Y.cod.nu]
+    ncolh = zeros(Int, k * nt)
+    dead = falses(k)
+    ntyp = [count(==(u), Yn[1].vtx) for u in 1:Yn[1].cod.nu]
     nkern = 0
     nround = 0
     ev1 = CuEvent(); ev2 = CuEvent()
     tker = 0.0
+    ntJ = J(nt); nuJ = J(nu)
     t0 = time_ns()
 
     for l in eachindex(up)
         lev = up[l]
         nb = length(lev)
-        bagsd = view(upd, upptr[l]:upptr[l + 1] - 1)
-        copyto!(ibag, 1, upd, upptr[l], nb)
-        fill!(view(idep, 1:nb), zero(J))
-        nitem = nb
+        np = nb * k
+        #
+        # the items of the level: (t, q) for every target, target-major
+        #
+        hb = Vector{J}(undef, np); hq = Vector{J}(undef, np); hp = Vector{J}(undef, np)
+
+        for q in 1:k, (j, t) in enumerate(lev)
+            e = (q - 1) * nb + j
+            hb[e] = t; hq[e] = q; hp[e] = (q - 1) * nt + t
+        end
+
+        bagsd = CuVector{J}(hp)
+        copyto!(ibag, 1, hb, 1, np)
+        copyto!(iq, 1, hq, 1, np)
+        fill!(view(idep, 1:np), zero(J))
+        nitem = np
         round = 0
         #
         # estimated work: the sizes of the child tables, or for a leaf the
@@ -878,17 +963,17 @@ function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=
             cstop = D.tree.xadj[t + one(I)] - one(I)
 
             if cstrt <= cstop
-                for j in cstrt:cstop
-                    work += ncolh[D.tree.adjncy[j]]
+                for j in cstrt:cstop, q in 1:k
+                    work += ncolh[(q - 1) * nt + D.tree.adjncy[j]]
                 end
             else
                 w = 1
 
-                for k in 1:sh[t]
-                    w = min(w * ntyp[Pc.vtx[Pc.xpos[t] + k]], minwork)
+                for kk in 1:sh[t]
+                    w = min(w * ntyp[Pc.vtx[Pc.xpos[t] + kk]], minwork)
                 end
 
-                work += w
+                work += k * w
             end
         end
 
@@ -907,16 +992,16 @@ function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=
             R = 0
 
             while true
-                @cuda threads=256 blocks=cld(nb, 256) zerokernel!(ncol, bagsd, J(nb), cnt, next)
+                @cuda threads=256 blocks=cld(np, 256) zerokernel!(ncol, bagsd, J(np), cnt, next)
                 isnothing(stats) || CUDA.record(ev1)
                 @cuda threads=threads blocks=min(blocks, cld(nitem, threads)) searchkernel!(P, T, tab, xtab, ncol, h, ibag, idep, ipre, J(W), J(nitem), next,
-                    st.rkey, st.rdep, st.rval, J(st.cap), cnt, scr, J(maxm), J(maxo), J(mode), icnt, kb, abort, aflag)
+                    st.rkey, st.rdep, st.rval, J(st.cap), cnt, scr, J(maxm), J(maxo), J(mode), icnt, kb, abort, aflag, iq, ntJ, nuJ)
                 isnothing(stats) || CUDA.record(ev2)
-                @cuda threads=256 blocks=cld(nb + 1, 256) reportkernel!(rep, ncol, bagsd, J(nb), cnt)
-                copyto!(reph, 1, rep, 1, nb + 1)
+                @cuda threads=256 blocks=cld(np + 1, 256) reportkernel!(rep, ncol, bagsd, J(np), cnt)
+                copyto!(reph, 1, rep, 1, np + 1)
                 nkern += 1
                 isnothing(stats) || (tker += CUDA.elapsed(ev1, ev2))
-                R = Int(reph[nb + 1])
+                R = Int(reph[np + 1])
                 R <= st.cap && break
                 st = Stage(max(R, 2st.cap), W)
                 STAGE[] = max(STAGE[], st.cap)
@@ -935,15 +1020,21 @@ function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=
                     continue
                 end
             end
-
-            for k in 1:nb
-                if iszero(reph[k])
-                    if !isnothing(stats)
-                        stats[:fwd] = (time_ns() - t0) / 1e9; stats[:ntab] = ntab; stats[:nkern] = nkern; stats[:levels] = length(up); stats[:rounds] = nround; stats[:kernel] = tker
-                    end
-
-                    return
+            #
+            # a target with an empty table has no homomorphism
+            #
+            for e in 1:np
+                if iszero(reph[e])
+                    dead[hq[e]] = true
                 end
+            end
+
+            if all(dead)
+                if !isnothing(stats)
+                    stats[:fwd] = (time_ns() - t0) / 1e9; stats[:ntab] = ntab; stats[:nkern] = nkern; stats[:levels] = length(up); stats[:rounds] = nround; stats[:kernel] = tker
+                end
+
+                return keep ? nothing : fill(nothing, k)
             end
 
             accumulate!(+, view(iscan, 1:nitem), view(icnt, 1:nitem))
@@ -951,22 +1042,18 @@ function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=
             if mode == 1
                 if R > icap
                     icap = max(R, 2icap)
-                    nbag = CuVector{J}(undef, icap); ndep = CuVector{J}(undef, icap); npre = CuVector{J}(undef, icap * W)
+                    nbag = CuVector{J}(undef, icap); ndep = CuVector{J}(undef, icap); npre = CuVector{J}(undef, icap * W); niq = CuVector{J}(undef, icap)
                 end
 
-                @cuda threads=256 blocks=cld(R, 256) gatherkernel!(iscan, st.rkey, st.rdep, st.rval, J(W), J(R), ibag, P, tab, xtab, first, nbag, ndep, npre, J(1))
-                ibag, nbag = nbag, ibag; idep, ndep = ndep, idep; ipre, npre = npre, ipre
+                @cuda threads=256 blocks=cld(R, 256) gatherkernel!(iscan, st.rkey, st.rdep, st.rval, J(W), J(R), ibag, P, tab, xtab, first, nbag, ndep, npre, J(1), iq, niq, ntJ)
+                ibag, nbag = nbag, ibag; idep, ndep = ndep, idep; ipre, npre = npre, ipre; iq, niq = niq, iq
 
                 if length(nbag) < icap
-                    nbag = CuVector{J}(undef, icap); ndep = CuVector{J}(undef, icap); npre = CuVector{J}(undef, icap * W)
+                    nbag = CuVector{J}(undef, icap); ndep = CuVector{J}(undef, icap); npre = CuVector{J}(undef, icap * W); niq = CuVector{J}(undef, icap)
                 end
 
                 if length(icnt) < icap
                     icnt = CuVector{J}(undef, icap); iscan = CuVector{J}(undef, icap)
-                end
-
-                if length(abort) < icap
-                    abort = CUDA.zeros(J, icap)
                 end
 
                 if length(abort) < icap
@@ -979,13 +1066,13 @@ function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=
             else
                 acc = 0
 
-                for k in 1:nb
-                    t = lev[k]
-                    ncolh[t] = reph[k]
-                    reph[k] = ntab + 1
-                    reph[nb + k] = acc
-                    ntab += ncolh[t] * sh[t]
-                    acc += ncolh[t]
+                for e in 1:np
+                    tq = hp[e]
+                    ncolh[tq] = reph[e]
+                    reph[e] = ntab + 1
+                    reph[np + e] = acc
+                    ntab += ncolh[tq] * sh[hb[e]]
+                    acc += ncolh[tq]
                 end
 
                 if ntab > length(tab)
@@ -994,9 +1081,9 @@ function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=
                     tab = tab2
                 end
 
-                copyto!(rep, 1, reph, 1, 2nb)
-                @cuda threads=256 blocks=cld(nb, 256) placekernel!(xtab, first, bagsd, J(nb), rep)
-                R > 0 && @cuda threads=256 blocks=cld(R, 256) gatherkernel!(iscan, st.rkey, st.rdep, st.rval, J(W), J(R), ibag, P, tab, xtab, first, nbag, ndep, npre, J(0))
+                copyto!(rep, 1, reph, 1, 2np)
+                @cuda threads=256 blocks=cld(np, 256) placekernel!(xtab, first, bagsd, J(np), rep)
+                R > 0 && @cuda threads=256 blocks=cld(R, 256) gatherkernel!(iscan, st.rkey, st.rdep, st.rval, J(W), J(R), ibag, P, tab, xtab, first, nbag, ndep, npre, J(0), iq, niq, ntJ)
                 break
             end
         end
@@ -1010,25 +1097,46 @@ function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=
             stats[:plan] = tpl / 1e9; stats[:setup] = (t0 - tst) / 1e9; stats[:fwd] = (t1 - t0) / 1e9; stats[:rounds] = nround
         end
 
-        return (; tab, xtab, ncol, Pc, yord, Y)
+        return (; tab, xtab, ncol, Pc, yord=yords[1], Y=Yn[1])
     end
+    #
+    # backward, for the live targets
+    #
+    live = [q for q in 1:k if !dead[q]]
+    dnflat = prep.dnflat
 
     for l in 1:length(dnptr) - 1
-        nb = dnptr[l + 1] - dnptr[l]
-        copyto!(ibag, 1, dnd, dnptr[l], nb)
-        copyto!(idep, 1, dns, dnptr[l], nb)
-        @cuda threads=256 blocks=cld(nb, 256) zerokernel!(rep, view(dnd, dnptr[l]:dnptr[l + 1] - 1), J(0), cnt, next)
-        @cuda threads=threads blocks=min(blocks, cld(nb, threads)) searchkernel!(P, T, tab, xtab, ncol, h, ibag, idep, ipre, J(W), J(nb), next,
-            st.rkey, st.rdep, st.rval, J(st.cap), cnt, scr, J(maxm), J(maxo), J(2), icnt, zero(J), abort, aflag)
+        lev = view(dnflat, dnptr[l]:dnptr[l + 1] - 1)
+        nb = length(lev)
+        np = nb * length(live)
+        hb = Vector{J}(undef, np); hq = Vector{J}(undef, np); hd = Vector{J}(undef, np)
+
+        for (qi, q) in enumerate(live), (j, t) in enumerate(lev)
+            e = (qi - 1) * nb + j
+            hb[e] = t; hq[e] = q; hd[e] = sh[t]
+        end
+
+        copyto!(ibag, 1, hb, 1, np)
+        copyto!(iq, 1, hq, 1, np)
+        copyto!(idep, 1, hd, 1, np)
+        next .= zero(J)
+        @cuda threads=threads blocks=min(blocks, cld(np, threads)) searchkernel!(P, T, tab, xtab, ncol, h, ibag, idep, ipre, J(W), J(np), next,
+            st.rkey, st.rdep, st.rval, J(st.cap), cnt, scr, J(maxm), J(maxo), J(2), icnt, zero(J), abort, aflag, iq, ntJ, nuJ)
         nkern += 1
     end
 
     hh = Array(h)
     t2 = time_ns()
-    out = Vector{I}(undef, nu)
+    outs = Vector{Union{Nothing, Vector{I}}}(nothing, k)
 
-    for r in oneto(nu)
-        out[D.res.adjncy[r]] = yord[hh[r]]
+    for q in live
+        out = Vector{I}(undef, nu)
+
+        for r in oneto(nu)
+            out[D.res.adjncy[r]] = yords[q][hh[(q - 1) * nu + r] - oys[q]]
+        end
+
+        outs[q] = out
     end
 
     if !isnothing(stats)
@@ -1039,7 +1147,7 @@ function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=
         end
     end
 
-    return out
+    return outs
 end
 
 include("contractgpu.jl")
