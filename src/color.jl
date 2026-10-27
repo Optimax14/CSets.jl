@@ -536,7 +536,7 @@ function bagsearch!(
             #
             # child tables
             #
-            if valid
+            if valid && xnar[k] < xnar[k + one(I)]
                 if kind[k] == two(I) + two(I)
                     skip = arg[k]
                 else
