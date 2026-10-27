@@ -1,0 +1,10 @@
+name = "CSets"
+uuid = "ed54769e-ad16-4eeb-a3f6-ee746befe4bd"
+version = "0.1.0"
+authors = ["Richard Samuelson <samuelson.rick@gmail.com>"]
+
+[deps]
+FixedSizeArrays = "3821ddf9-e5b5-40d5-8e25-6813ab96b5e2"
+
+[compat]
+FixedSizeArrays = "1.5.1"
