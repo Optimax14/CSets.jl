@@ -7,7 +7,6 @@ function color(D::Decomposition{I}, Y::Instance{I}) where {I}
     Y, yord = normalize(Y)
     X = D.inst
     nu = X.dom.nu
-    ne = X.dom.ne
     nt = D.tree.nu
     ny = Y.dom.nu
     nf = Y.dom.ne
@@ -49,7 +48,6 @@ function color(D::Decomposition{I}, Y::Instance{I}) where {I}
         mchk = max(mchk, two(I) * d)
     end
 
-    xsrc = FVector{I}(undef, ne)
     ysrc = FVector{I}(undef, nf)
     base = FVector{I}(undef, na + one(I))
     ykey = FVector{I}(undef, nf)
@@ -81,13 +79,7 @@ function color(D::Decomposition{I}, Y::Instance{I}) where {I}
     ntab[] = zero(I)
 
     for x in oneto(nu)
-        pstrt = X.dom.xadj[x]
-        pstop = X.dom.xadj[x + one(I)] - one(I)
         bag[x] = zero(I)
-
-        for p in pstrt:pstop
-            xsrc[p] = x
-        end
     end
 
     for y in oneto(ny)
@@ -99,7 +91,6 @@ function color(D::Decomposition{I}, Y::Instance{I}) where {I}
         end
     end
 
-    xin = invmap(nu, ne, X.dom.adjncy)
     typ = invvtx(Y)
     #
     # the preimages of y under arc a are the column
@@ -125,13 +116,13 @@ function color(D::Decomposition{I}, Y::Instance{I}) where {I}
     end
 
     for t in oneto(nt)
-        if !bagsearch!(D, Y, xsrc, xin, pre, base, typ, ord, kind, arg, cur, stop, bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, pos, bag, h, xtab, ncol, tab, ntab, t, true)
+        if !bagsearch!(D, Y, pre, base, typ, ord, kind, arg, cur, stop, bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, pos, bag, h, xtab, ncol, tab, ntab, t, true)
             return
         end
     end
 
     for t in nt:-one(I):one(I)
-        bagsearch!(D, Y, xsrc, xin, pre, base, typ, ord, kind, arg, cur, stop, bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, pos, bag, h, xtab, ncol, tab, ntab, t, false)
+        bagsearch!(D, Y, pre, base, typ, ord, kind, arg, cur, stop, bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, pos, bag, h, xtab, ncol, tab, ntab, t, false)
     end
 
     out = FVector{I}(undef, nu)
@@ -185,8 +176,6 @@ end
 function bagsearch!(
         D::Decomposition{I},
         Y::Instance{I},
-        xsrc::AbstractVector{I},
-        xin::Span{I},
         pre::Span{I},
         base::AbstractVector{I},
         typ::Span{I},
@@ -259,57 +248,80 @@ function bagsearch!(
     #     element x points to (2), or all elements of its type (1),
     #     with the position and arc that determine them.
     #
-    q = one(I)
-
+    # Every edge with both ends in the bag is an edge out of some bag
+    # element, since bags are closed downward, so the checks are found
+    # by scanning out-edges only. An edge w -> z is checked at the later
+    # of the two positions.
+    #
     for k in oneto(m)
-        x = ord[k]
-        xchk[k] = q
+        xchk[k + one(I)] = zero(I)
         bknd[k] = one(I)
         bpos[k] = zero(I)
         barc[k] = zero(I)
-        qstrt = xin.xadj[x]
-        qstop = xin.xadj[x + one(I)] - one(I)
+    end
 
-        for p in qstrt:qstop
-            e = xin.adjncy[p]
-            w = xsrc[e]
-
-            if bag[w] == t && pos[w] < k
-                chka[q] = X.arc[e]
-                chkp[q] = pos[w]
-                chkd[q] = false
-                q += one(I)
-
-                if bknd[k] != two(I) + one(I)
-                    bknd[k] = two(I) + one(I)
-                    bpos[k] = pos[w]
-                    barc[k] = X.arc[e]
-                end
-            end
-        end
-
-        pstrt = X.dom.xadj[x]
-        pstop = X.dom.xadj[x + one(I)] - one(I)
+    for k in oneto(m)
+        w = ord[k]
+        pstrt = X.dom.xadj[w]
+        pstop = X.dom.xadj[w + one(I)] - one(I)
 
         for p in pstrt:pstop
-            z = X.dom.adjncy[p]
+            l = max(k, pos[X.dom.adjncy[p]])
 
-            if pos[z] <= k
-                chka[q] = X.arc[p]
-                chkp[q] = pos[z]
-                chkd[q] = true
-                q += one(I)
-
-                if pos[z] < k && isone(bknd[k])
-                    bknd[k] = two(I)
-                    bpos[k] = pos[z]
-                    barc[k] = X.arc[p]
-                end
+            if l < m
+                xchk[l + two(I)] += one(I)
             end
         end
     end
 
-    xchk[m + one(I)] = q
+    xchk[one(I)] = q = one(I)
+
+    for k in oneto(m)
+        xchk[k + one(I)] = q += xchk[k + one(I)]
+    end
+
+    for k in oneto(m)
+        w = ord[k]
+        pstrt = X.dom.xadj[w]
+        pstop = X.dom.xadj[w + one(I)] - one(I)
+
+        for p in pstrt:pstop
+            a = X.arc[p]
+            j = pos[X.dom.adjncy[p]]
+
+            if j <= k
+                #
+                # an edge out of w to an earlier element (or w itself)
+                #
+                r = xchk[k + one(I)]
+                chka[r] = a
+                chkp[r] = j
+                chkd[r] = true
+                xchk[k + one(I)] += one(I)
+
+                if j < k && isone(bknd[k])
+                    bknd[k] = two(I)
+                    bpos[k] = j
+                    barc[k] = a
+                end
+            else
+                #
+                # an edge into the later element at position j
+                #
+                r = xchk[j + one(I)]
+                chka[r] = a
+                chkp[r] = k
+                chkd[r] = false
+                xchk[j + one(I)] += one(I)
+
+                if bknd[j] != two(I) + one(I)
+                    bknd[j] = two(I) + one(I)
+                    bpos[j] = k
+                    barc[j] = a
+                end
+            end
+        end
+    end
     #
     # Each child's table is sorted by its separator in descending
     # order, which is the order in which this search assigns those
