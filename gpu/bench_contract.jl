@@ -8,11 +8,15 @@ function run(name, X, S, Y; reps=3)
     if hd === :wide
         println(rpad(name, 26), " cpu=", round(tc, digits=4), " contraction: separator domain > 64"); return
     end
-    st = Dict{Symbol,Any}()
-    tg = minimum(@elapsed(CSetsGPU.contract(D, Y; stats=st)) for _ in 1:reps)
+    st = Dict{Symbol,Any}(); tg = Inf
+    for _ in 1:reps
+        s1 = Dict{Symbol,Any}()
+        t = @elapsed CSetsGPU.contract(D, Y; stats=s1)
+        t < tg && (tg = t; st = s1)
+    end
     ok = isnothing(hc) == isnothing(hd) && (isnothing(hd) || ishom(X, Y, hd))
     println(rpad(name, 26), " decomp=", round(td, digits=4), " cpu=", round(tc, digits=4), " gpu-contract=", round(tg, digits=4),
-        " (local ", round(get(st, :local, 0.0), digits=4), " contract ", round(get(st, :contract, 0.0), digits=4), " witness ", round(get(st, :witness, 0.0), digits=4),
+        " (local ", round(get(st, :local, 0.0), digits=4), " [plan ", round(get(st, :lplan, 0.0), digits=4), " setup ", round(get(st, :lsetup, 0.0), digits=4), " fwd ", round(get(st, :lfwd, 0.0), digits=4), " tree ", round(get(st, :ltree, 0.0), digits=4), "] contract ", round(get(st, :contract, 0.0), digits=4), " witness ", round(get(st, :witness, 0.0), digits=4),
         ") x", round(tc / tg, digits=1), " end-to-end x", round((td + tc) / (td + tg), digits=2), " levels=", maximum(depths(D)) + 1,
         " phases=", get(st, :phases, 0), " jumps=", get(st, :jumps, 0), " maxL=", get(st, :maxL, 0), " ok=", ok); flush(stdout)
 end

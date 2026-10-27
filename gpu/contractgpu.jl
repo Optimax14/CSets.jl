@@ -171,37 +171,40 @@ function chainkernel!(F, xF, proj, xch, chl, xC, cproj, done, nund, v, chain, pt
     return
 end
 
+#
+# one thread per row a of a chain bag t
+#
 function jumpkernel!(chain, ptr, ptr2, M, M2, flag, nt)
-    t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+    i = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+    t = (i - one(J)) ÷ J(B) + one(J)
+    a = i - (t - one(J)) * J(B)
 
     @inbounds if t <= nt && isone(chain[t])
         u = ptr[t]
         o = (t - one(J)) * J(B)
 
         if isone(chain[u])
-            ou = (u - one(J)) * J(B)
+            w = M[(u - one(J)) * J(B) + a]
+            r = zero(UInt64)
 
-            for a in one(J):J(B)
-                w = M[ou + a]
-                r = zero(UInt64)
-
-                while !iszero(w)
-                    b = J(trailing_zeros(w)) + one(J)
-                    r |= M[o + b]
-                    w &= w - one(UInt64)
-                end
-
-                M2[o + a] = r
+            while !iszero(w)
+                b = J(trailing_zeros(w)) + one(J)
+                r |= M[o + b]
+                w &= w - one(UInt64)
             end
 
-            ptr2[t] = ptr[u]
-            flag[one(J)] = one(J)
+            M2[o + a] = r
+
+            if isone(a)
+                ptr2[t] = ptr[u]
+                flag[one(J)] = one(J)
+            end
         else
-            for a in one(J):J(B)
-                M2[o + a] = M[o + a]
-            end
+            M2[o + a] = M[o + a]
 
-            ptr2[t] = u
+            if isone(a)
+                ptr2[t] = u
+            end
         end
     end
 
@@ -317,28 +320,28 @@ function fkernel!(parent, slot, xch, xC, cproj, xsel, f, nt)
 end
 
 function fjumpkernel!(anc, anc2, f, g, root, flag, nt)
-    t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+    i = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+    t = (i - one(J)) ÷ J(B) + one(J)
+    b = i - (t - one(J)) * J(B)
 
     @inbounds if t <= nt
         a = anc[t]
         o = (t - one(J)) * J(B)
 
         if a > zero(J) && a != root
-            oa = (a - one(J)) * J(B)
+            y = f[(a - one(J)) * J(B) + b]
+            g[o + b] = iszero(y) ? zero(J) : f[o + y]
 
-            for b in one(J):J(B)
-                y = f[oa + b]
-                g[o + b] = iszero(y) ? zero(J) : f[o + y]
+            if isone(b)
+                anc2[t] = anc[a]
+                flag[one(J)] = one(J)
             end
-
-            anc2[t] = anc[a]
-            flag[one(J)] = one(J)
         else
-            for b in one(J):J(B)
-                g[o + b] = f[o + b]
-            end
+            g[o + b] = f[o + b]
 
-            anc2[t] = a
+            if isone(b)
+                anc2[t] = a
+            end
         end
     end
 
@@ -406,6 +409,7 @@ function contract(D::Decomposition{I}, Y::Instance{I}; stats=nothing, kw...) whe
 
     tab, xtab, Fd, Pc, yord = R.tab, R.xtab, R.ncol, R.Pc, R.yord
     F = Array(Fd)
+    tl1 = time_ns()
     #
     # the tree of D
     #
@@ -448,6 +452,7 @@ function contract(D::Decomposition{I}, Y::Instance{I}; stats=nothing, kw...) whe
         end
     end
 
+    tl2 = time_ns()
     d(x) = CuVector{J}(x)
     md = d(Pc.m); sd = d(sD); xFd = d(xF); xCd = d(xC); xchd = d(xch); chld = d(chl)
     cpoffd = d(cpoff); cposd = d(isempty(cpos) ? J[0] : cpos); parentd = d(parent); slotd = d(slot)
@@ -485,7 +490,7 @@ function contract(D::Decomposition{I}, Y::Instance{I}; stats=nothing, kw...) whe
 
         while true
             flag .= zero(J)
-            @cuda threads=th blocks=bl jumpkernel!(chain, ptr, ptr2, M, M2, flag, J(nt))
+            @cuda threads=th blocks=cld(B * nt, th) jumpkernel!(chain, ptr, ptr2, M, M2, flag, J(nt))
             ptr, ptr2 = ptr2, ptr
             M, M2 = M2, M
             njump += 1
@@ -522,7 +527,7 @@ function contract(D::Decomposition{I}, Y::Instance{I}; stats=nothing, kw...) whe
 
     while true
         flag .= zero(J)
-        @cuda threads=th blocks=bl fjumpkernel!(anc, anc2, f, g, root, flag, J(nt))
+        @cuda threads=th blocks=cld(B * nt, th) fjumpkernel!(anc, anc2, f, g, root, flag, J(nt))
         anc, anc2 = anc2, anc
         f, g = g, f
         njump += 1
@@ -542,6 +547,7 @@ function contract(D::Decomposition{I}, Y::Instance{I}; stats=nothing, kw...) whe
     tend = time_ns()
 
     if !isnothing(stats)
+        stats[:lplan] = st0[:plan]; stats[:lsetup] = st0[:setup]; stats[:lfwd] = st0[:fwd]; stats[:ltree] = (tl2 - tl1) / 1e9
         stats[:local] = (tlocal - tst) / 1e9; stats[:contract] = (tfwd - tlocal) / 1e9; stats[:witness] = (tend - tfwd) / 1e9
         stats[:phases] = nphase; stats[:jumps] = njump; stats[:maxL] = maximum(Array(L))
     end

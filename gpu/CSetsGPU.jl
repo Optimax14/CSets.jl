@@ -918,6 +918,10 @@ function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, 
     t1 = time_ns()
 
     if keep
+        if !isnothing(stats)
+            stats[:plan] = tpl / 1e9; stats[:setup] = (t0 - tst) / 1e9; stats[:fwd] = (t1 - t0) / 1e9; stats[:rounds] = nround
+        end
+
         return (; tab, xtab, ncol, Pc, yord, Y)
     end
 
