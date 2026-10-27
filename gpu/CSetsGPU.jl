@@ -296,7 +296,7 @@ end
 #      extension to h
 #
 function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, next,
-        rkey, rdep, rval, cap, cnt, scr, maxm, maxo, mode, icnt)
+        rkey, rdep, rval, cap, cnt, scr, maxm, maxo, mode, icnt, budget, abort, aflag)
     tid = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
     nthr = gridDim().x * blockDim().x
     one_ = one(J)
@@ -322,7 +322,7 @@ function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, nex
         # sc(f, k) = scr[(f + k - 1) * nthr + tid]
 
         if mode == J(1)
-            if d >= s
+            if d >= s || (budget > zero(J) && iszero(abort[i]))
                 emit!(rkey, rdep, rval, cap, cnt, ncol, ipre, W, i, zero(J), t, d, d, scr, nthr, tid, HP, true)
                 icnt[i] = one_
                 continue
@@ -366,6 +366,8 @@ function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, nex
         k = kmin
         fresh = true
         seq = zero(J)
+        steps = zero(J)
+        aborted = false
 
         while kmin <= k
             if fresh
@@ -419,6 +421,7 @@ function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, nex
             found = false
 
             while cu <= st
+                steps += one_
                 c = cu
                 cu += one_
 
@@ -497,6 +500,11 @@ function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, nex
 
             scr[(CUR + k - one_) * nthr + tid] = cu
 
+            if mode == zero(J) && budget > zero(J) && d < s && steps > budget
+                aborted = true
+                break
+            end
+
             if found
                 if k < mstop
                     k += one_
@@ -519,6 +527,14 @@ function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, nex
                 end
             else
                 k -= one_
+            end
+        end
+
+        if mode == zero(J) && budget > zero(J)
+            abort[i] = aborted ? one_ : zero(J)
+
+            if aborted
+                aflag[one_] = one_
             end
         end
 
@@ -799,7 +815,7 @@ function color(D::Decomposition{I}, Y::Instance{I}; kw...) where {I}
     return color(prepare(D), Y; kw...)
 end
 
-function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=256, threads=128, stats=nothing, keep=false) where {I}
+function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=256, threads=128, budget=1 << 14, maxsplit=6, stats=nothing, keep=false) where {I}
     tst = time_ns()
     D = prep.D
     Pc, P, maxm, maxo, W = prep.Pc, prep.P, prep.maxm, prep.maxo, prep.W
@@ -832,6 +848,7 @@ function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=
     ibag = CuVector{J}(undef, icap); idep = CuVector{J}(undef, icap); ipre = CuVector{J}(undef, icap * W)
     nbag = CuVector{J}(undef, icap); ndep = CuVector{J}(undef, icap); npre = CuVector{J}(undef, icap * W)
     icnt = CuVector{J}(undef, icap); iscan = CuVector{J}(undef, icap)
+    abort = CUDA.zeros(J, icap); aflag = CUDA.zeros(J, 1); status = Vector{J}(undef, 1)
     ntab = 0
     sh = Vector(Pc.s)
     ncolh = zeros(Int, nt)
@@ -875,16 +892,25 @@ function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=
             end
         end
 
+        resplit = false
+        nsplit = 0
+        bud = budget
+
         while true
-            expand = nitem < nitems && round < maxround && work >= minwork && any(t -> sh[t] > round, lev)
-            mode = expand ? 1 : 0
+            expand = !resplit && nitem < nitems && round < maxround && work >= minwork && any(t -> sh[t] > round, lev)
+            mode = expand || resplit ? 1 : 0
+            #
+            # a final round runs with a step budget while the level is
+            # still small; items that exceed it are split and run again
+            #
+            kb = resplit ? one(J) : mode == 0 && nsplit < maxsplit && nitem < 4nitems ? J(bud) : zero(J)
             R = 0
 
             while true
                 @cuda threads=256 blocks=cld(nb, 256) zerokernel!(ncol, bagsd, J(nb), cnt, next)
                 isnothing(stats) || CUDA.record(ev1)
                 @cuda threads=threads blocks=min(blocks, cld(nitem, threads)) searchkernel!(P, T, tab, xtab, ncol, h, ibag, idep, ipre, J(W), J(nitem), next,
-                    st.rkey, st.rdep, st.rval, J(st.cap), cnt, scr, J(maxm), J(maxo), J(mode), icnt)
+                    st.rkey, st.rdep, st.rval, J(st.cap), cnt, scr, J(maxm), J(maxo), J(mode), icnt, kb, abort, aflag)
                 isnothing(stats) || CUDA.record(ev2)
                 @cuda threads=256 blocks=cld(nb + 1, 256) reportkernel!(rep, ncol, bagsd, J(nb), cnt)
                 copyto!(reph, 1, rep, 1, nb + 1)
@@ -898,6 +924,18 @@ function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=
 
             nround += 1
 
+            if mode == 0 && kb > zero(J)
+                copyto!(status, aflag)
+
+                if isone(status[1])
+                    aflag .= zero(J)
+                    resplit = true
+                    nsplit += 1
+                    bud *= 4
+                    continue
+                end
+            end
+
             for k in 1:nb
                 if iszero(reph[k])
                     if !isnothing(stats)
@@ -910,7 +948,7 @@ function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=
 
             accumulate!(+, view(iscan, 1:nitem), view(icnt, 1:nitem))
 
-            if expand
+            if mode == 1
                 if R > icap
                     icap = max(R, 2icap)
                     nbag = CuVector{J}(undef, icap); ndep = CuVector{J}(undef, icap); npre = CuVector{J}(undef, icap * W)
@@ -927,8 +965,17 @@ function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=
                     icnt = CuVector{J}(undef, icap); iscan = CuVector{J}(undef, icap)
                 end
 
+                if length(abort) < icap
+                    abort = CUDA.zeros(J, icap)
+                end
+
+                if length(abort) < icap
+                    abort = CUDA.zeros(J, icap)
+                end
+
                 nitem = R
-                round += 1
+                round += resplit ? 0 : 1
+                resplit = false
             else
                 acc = 0
 
@@ -972,7 +1019,7 @@ function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=
         copyto!(idep, 1, dns, dnptr[l], nb)
         @cuda threads=256 blocks=cld(nb, 256) zerokernel!(rep, view(dnd, dnptr[l]:dnptr[l + 1] - 1), J(0), cnt, next)
         @cuda threads=threads blocks=min(blocks, cld(nb, threads)) searchkernel!(P, T, tab, xtab, ncol, h, ibag, idep, ipre, J(W), J(nb), next,
-            st.rkey, st.rdep, st.rval, J(st.cap), cnt, scr, J(maxm), J(maxo), J(2), icnt)
+            st.rkey, st.rdep, st.rval, J(st.cap), cnt, scr, J(maxm), J(maxo), J(2), icnt, zero(J), abort, aflag)
         nkern += 1
     end
 

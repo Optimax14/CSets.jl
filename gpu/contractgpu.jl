@@ -571,6 +571,115 @@ function hkernel!(tab, xtab, m, s, ord, xpos, xF, xsel, f, h, br, root, maxL, nt
 end
 
 #
+# Random-mate compress (linear work): a chain bag t with heads absorbs
+# its chain child u = ptr[t] with tails, M_t = M_u ⋅ M_t; u is frozen
+# with its matrix and pointer, and resolved after the chain's bottom.
+#
+@inline function coin(t, r)
+    x = UInt32(t) * 0x9e3779b1 + UInt32(r) * 0x85ebca77
+    x ⊻= x >> 15
+    x *= 0x2c1b3c6d
+    x ⊻= x >> 12
+    return isone(x & one(UInt32))
+end
+
+function absorbkernel!(chain, rem, ptr, absorb, flag, r, nt)
+    t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+
+    @inbounds if t <= nt
+        absorb[t] = zero(J)
+
+        if isone(chain[t]) && iszero(rem[t])
+            u = ptr[t]
+
+            if isone(chain[u])
+                flag[one(J)] = one(J)
+
+                if coin(t, r) && !coin(u, r)
+                    absorb[t] = one(J)
+                end
+            end
+        end
+    end
+
+    return
+end
+
+# one thread per (absorbing bag, row): the new row into M2
+function absorbrowkernel!(alg, alist, na, ptr, L, M, M2, moff, rs, maxL)
+    i = (Int(blockIdx().x) - 1) * Int(blockDim().x) + Int(threadIdx().x)
+    k = J((i - 1) ÷ maxL) + one(J)
+    a = J(i - (k - one(J)) * maxL)
+
+    @inbounds if k <= na
+        t = alist[k]
+        u = ptr[t]
+        o = moff[t] + (a - one(J)) * rs[t]
+
+        for w in one(J):rs[t]
+            if a <= L[ptr[u]]
+                M2[o + w] = jumpentry(alg, M, moff, rs, L, t, u, a, w)
+            else
+                M2[o + w] = zero(eltype(M2))
+            end
+        end
+    end
+
+    return
+end
+
+function absorbcopykernel!(alist, na, M, M2, moff, rs, maxL)
+    i = (Int(blockIdx().x) - 1) * Int(blockDim().x) + Int(threadIdx().x)
+    k = J((i - 1) ÷ maxL) + one(J)
+    a = J(i - (k - one(J)) * maxL)
+
+    @inbounds if k <= na
+        t = alist[k]
+        o = moff[t] + (a - one(J)) * rs[t]
+
+        for w in one(J):rs[t]
+            M[o + w] = M2[o + w]
+        end
+    end
+
+    return
+end
+
+function absorbptrkernel!(alist, na, ptr, rem, rptr, r)
+    k = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+
+    @inbounds if k <= na
+        t = alist[k]
+        u = ptr[t]
+        rem[u] = r
+        rptr[u] = ptr[u]
+        ptr[t] = ptr[u]
+    end
+
+    return
+end
+
+function unsplicemarkkernel!(rem, rptr, done, newd, r, nt)
+    t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+
+    @inbounds if t <= nt
+        newd[t] = rem[t] == r && isone(done[rptr[t]]) ? one(J) : zero(J)
+    end
+
+    return
+end
+
+function finmark2kernel!(chain, rem, ptr, done, newd, nt)
+    t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+
+    @inbounds if t <= nt
+        newd[t] = isone(chain[t]) && iszero(rem[t]) && isone(done[ptr[t]]) ? one(J) : zero(J)
+    end
+
+    return
+end
+
+#
 # Everything that depends only on the decomposition.
 #
 struct ContractPrep{I, P, V}
@@ -664,7 +773,7 @@ end
 # the root (for counting: the number of homomorphisms).
 #
 function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=alg isa BoolPacked,
-        maxbytes=CUDA.total_memory() ÷ 4, stats=nothing, kw...) where {I}
+        maxbytes=CUDA.total_memory() ÷ 4, jump=:mate, stats=nothing, kw...) where {I}
     tst = time_ns()
     D = C.D
     X = D.inst
@@ -744,6 +853,8 @@ function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=
     chain = CUDA.zeros(J, nt); ptr = CUDA.zeros(J, nt); ptr2 = CUDA.zeros(J, nt); chj = CUDA.zeros(J, nt)
     M = CuVector{E}(undef, max(Mtot, 1)); M2 = CuVector{E}(undef, max(Mtot, 1))
     newd = CUDA.zeros(J, nt)
+    rem = CUDA.zeros(J, nt); rptr = CUDA.zeros(J, nt); absorb = CUDA.zeros(J, nt)
+    nmate = 0
     root = J(nt)
     nphase = 0
     njump = 0
@@ -760,14 +871,39 @@ function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=
         @cuda threads=th blocks=bx buildkernel!(alg, M, moff, rs, proj, xbagd, xFd, xchd, chld, xCd, cproj, done, v, voff, chain, ptr, chj, J(nx))
         tj = time_ns()
 
-        while true
-            flag .= zero(J)
-            @cuda threads=th blocks=bm jumpkernel!(alg, chain, ptr, ptr2, L, M, M2, moff, rs, flag, J(nt), Mtot)
-            ptr, ptr2 = ptr2, ptr
-            M, M2 = M2, M
-            njump += 1
-            copyto!(status, flag)
-            iszero(status[1]) && break
+        if jump == :wyllie
+            while true
+                flag .= zero(J)
+                @cuda threads=th blocks=bm jumpkernel!(alg, chain, ptr, ptr2, L, M, M2, moff, rs, flag, J(nt), Mtot)
+                ptr, ptr2 = ptr2, ptr
+                M, M2 = M2, M
+                njump += 1
+                copyto!(status, flag)
+                iszero(status[1]) && break
+            end
+        else
+            fill!(rem, zero(J))
+            r = 0
+
+            while true
+                r += 1
+                flag .= zero(J)
+                @cuda threads=th blocks=bl absorbkernel!(chain, rem, ptr, absorb, flag, J(r + 1000nphase), J(nt))
+                copyto!(status, flag)
+                iszero(status[1]) && break
+                alist = findall(isone, absorb)
+                na = length(alist)
+                njump += 1
+
+                if na > 0
+                    alist = J.(alist)
+                    @cuda threads=th blocks=cld(na * maxL, th) absorbrowkernel!(alg, alist, J(na), ptr, L, M, M2, moff, rs, J(maxL))
+                    @cuda threads=th blocks=cld(na * maxL, th) absorbcopykernel!(alist, J(na), M, M2, moff, rs, J(maxL))
+                    @cuda threads=th blocks=cld(na, th) absorbptrkernel!(alist, J(na), ptr, rem, rptr, J(r))
+                end
+            end
+
+            nmate = r - 1
         end
 
         tjump += time_ns() - tj
@@ -775,9 +911,23 @@ function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=
         @cuda threads=th blocks=bl rakemarkkernel!(done, nund, newd, v, voff, rs, J(nt))
         @cuda threads=th blocks=bx rakekernel!(alg, v, voff, rs, proj, xbagd, xFd, xchd, chld, xCd, cproj, done, newd, J(nx))
         @cuda threads=th blocks=bl updatekernel!(alg, newd, done, nund, parentd, v, voff, rs, L, flag, J(nt))
-        @cuda threads=th blocks=bl finmarkkernel!(chain, ptr, done, newd, J(nt))
-        @cuda threads=th blocks=bv finkernel!(alg, newd, ptr, L, v, voff, M, moff, rs, J(nt), Vtot)
-        @cuda threads=th blocks=bl updatekernel!(alg, newd, done, nund, parentd, v, voff, rs, L, flag, J(nt))
+
+        if jump == :wyllie
+            @cuda threads=th blocks=bl finmarkkernel!(chain, ptr, done, newd, J(nt))
+            @cuda threads=th blocks=bv finkernel!(alg, newd, ptr, L, v, voff, M, moff, rs, J(nt), Vtot)
+            @cuda threads=th blocks=bl updatekernel!(alg, newd, done, nund, parentd, v, voff, rs, L, flag, J(nt))
+        else
+            @cuda threads=th blocks=bl finmark2kernel!(chain, rem, ptr, done, newd, J(nt))
+            @cuda threads=th blocks=bv finkernel!(alg, newd, ptr, L, v, voff, M, moff, rs, J(nt), Vtot)
+            @cuda threads=th blocks=bl updatekernel!(alg, newd, done, nund, parentd, v, voff, rs, L, flag, J(nt))
+
+            for r in nmate:-1:1
+                @cuda threads=th blocks=bl unsplicemarkkernel!(rem, rptr, done, newd, J(r), J(nt))
+                @cuda threads=th blocks=bv finkernel!(alg, newd, rptr, L, v, voff, M, moff, rs, J(nt), Vtot)
+                @cuda threads=th blocks=bl updatekernel!(alg, newd, done, nund, parentd, v, voff, rs, L, flag, J(nt))
+            end
+        end
+
         copyto!(status, flag)
 
         if isone(status[1]) && witness

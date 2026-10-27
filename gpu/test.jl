@@ -32,7 +32,7 @@ for n in (4, 8, 16, 33)
     for f in (adder2!, (c, a, b) -> buggy!(c, a, b, max(2, n ÷ 2)))
         c, = miter(n, adder!, f); X = instance(c)
         for nit in (1, 64, 1 << 15)
-            o, u = check("miter $n", X, support(X), B; nitems=nit, minwork=0); global nok += o; global N += 1; global nsat += !u
+            o, u = check("miter $n", X, support(X), B; nitems=nit, minwork=0, budget=rand(rng, (4, 64, 1 << 14))); global nok += o; global N += 1; global nsat += !u
         end
     end
 end
@@ -44,7 +44,7 @@ for trial in 1:150
     ny = rand(rng, 3:12)
     Y = rand(rng, Bool) ? complete(rand(rng, 2:5)) : symmetric(ny, randomgraph(rng, ny, rand(rng, 0.3:0.1:0.7)))
     Y.dom.nu == 0 && continue
-    o, u = check("pk trial $trial", X, graphsupport(X), Y; nitems=rand(rng, (1, 16, 1 << 15)), minwork=rand(rng, (0, 1 << 14)))
+    o, u = check("pk trial $trial", X, graphsupport(X), Y; nitems=rand(rng, (1, 16, 1 << 15)), minwork=rand(rng, (0, 1 << 14)), budget=rand(rng, (4, 64, 1 << 14)))
     global nok += o; global N += 1; global nsat += !u
 end
 println("ok $nok / $N  (sat $nsat)")

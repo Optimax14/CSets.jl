@@ -4,7 +4,7 @@ nok = 0; N = 0; nsat = 0; nwide = 0
 function chk(X, S, Y; kw...)
     D = decomposition(X, S; alg=MF())
     hc = color(D, Y)
-    hd = rand(Bool) ? CSetsGPU.contract(D, Y; kw...) : CSetsGPU.auto(D, Y; kw...)
+    hd = rand(Bool) ? CSetsGPU.contract(D, Y; jump=rand((:mate, :wyllie)), kw...) : CSetsGPU.auto(D, Y; kw...)
     hd === :wide && return true, false, true
     ok = isnothing(hc) == isnothing(hd) && (isnothing(hd) || ishom(X, Y, hd))
     ok || println("MISMATCH cpu=", isnothing(hc), " contract=", isnothing(hd))
