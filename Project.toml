@@ -4,7 +4,9 @@ version = "0.1.0"
 authors = ["Richard Samuelson <samuelson.rick@gmail.com>"]
 
 [deps]
+CliqueTrees = "60701a23-6482-424a-84db-faee86b9b1f8"
 FixedSizeArrays = "3821ddf9-e5b5-40d5-8e25-6813ab96b5e2"
 
 [compat]
+CliqueTrees = "1.19.7"
 FixedSizeArrays = "1.5.1"
