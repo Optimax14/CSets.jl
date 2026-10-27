@@ -739,17 +739,30 @@ end
 #               (default: 8 per GPU thread)
 #   - minwork:  ... unless the level is smaller than this
 #
-function color(D::Decomposition{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=256, threads=128, stats=nothing, keep=false) where {I}
-    tst = time_ns()
-    Y, yord = normalize(Y)
-    X = D.inst
-    nu = X.dom.nu
+#
+# Everything that depends only on the decomposition: the plan of every
+# bag and the levels, on the device. Reuse it for many targets.
+#
+struct Prepared{I, A, V}
+    D::Decomposition{I}
+    Pc::Plan{Vector{J}}
+    P::A
+    maxm::Int
+    maxo::Int
+    W::Int
+    up::Vector{Vector{J}}
+    upptr::Vector{Int}
+    dnptr::Vector{Int}
+    upd::V
+    dnd::V
+    dns::V
+    mlev::Int
+end
+
+function prepare(D::Decomposition{I}) where {I}
     nt = D.tree.nu
-    ny = Y.dom.nu
     Pc, maxm, maxo = plan(D)
-    tpl = time_ns() - tst
     P = adapt(CuArray, Pc)
-    T = target(Y)
     W = max(1, Int(maximum(Pc.s; init=0)))
     #
     # forward levels: by height; backward levels: by depth
@@ -779,6 +792,25 @@ function color(D::Decomposition{I}, Y::Instance{I}; nitems=0, maxround=8, minwor
     dnd = CuVector{J}(dnflat)
     dns = CuVector{J}(J[Pc.s[t] for t in dnflat])
     mlev = max(maximum(length, up), maximum(length, down))
+    return Prepared{I, typeof(P), typeof(upd)}(D, Pc, P, maxm, maxo, W, up, upptr, dnptr, upd, dnd, dns, mlev)
+end
+
+function color(D::Decomposition{I}, Y::Instance{I}; kw...) where {I}
+    return color(prepare(D), Y; kw...)
+end
+
+function color(prep::Prepared{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=256, threads=128, stats=nothing, keep=false) where {I}
+    tst = time_ns()
+    D = prep.D
+    Pc, P, maxm, maxo, W = prep.Pc, prep.P, prep.maxm, prep.maxo, prep.W
+    up, upptr, dnptr, upd, dnd, dns, mlev = prep.up, prep.upptr, prep.dnptr, prep.upd, prep.dnd, prep.dns, prep.mlev
+    Y, yord = normalize(Y)
+    X = D.inst
+    nu = X.dom.nu
+    nt = D.tree.nu
+    ny = Y.dom.nu
+    tpl = time_ns() - tst
+    T = target(Y)
 
     dev = device()
     nsm = attribute(dev, CUDA.DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT)
@@ -934,7 +966,7 @@ function color(D::Decomposition{I}, Y::Instance{I}; nitems=0, maxround=8, minwor
         return (; tab, xtab, ncol, Pc, yord, Y)
     end
 
-    for l in eachindex(down)
+    for l in 1:length(dnptr) - 1
         nb = dnptr[l + 1] - dnptr[l]
         copyto!(ibag, 1, dnd, dnptr[l], nb)
         copyto!(idep, 1, dns, dnptr[l], nb)

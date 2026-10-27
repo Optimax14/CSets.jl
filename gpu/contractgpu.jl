@@ -1,26 +1,176 @@
 #
-# Design (d) on the GPU, for separator domains of at most 64
-# assignments: tree contraction with 64 × 64 Boolean matrices, one
-# UInt64 per row. See contract.jl for the reference and GPU_NOTES.md.
+# Design (d) on the GPU: tree contraction. See contract.jl for the
+# sequential reference and GPU_NOTES.md.
 #
-# Every kernel has one thread per bag.
+# Each bag t has a local table Full_t (its consistent assignments,
+# ignoring its children) and a separator domain Loc_t (their
+# projections). A message is a vector over Loc_t; a chain bag (one
+# undone child c) is a matrix M_t : Loc_c × Loc_t; chains collapse by
+# matrix products (pointer jumping).
 #
-const B = 64
+# The algebra of messages is a parameter:
+#
+#   - BoolPacked(): Boolean, 64 entries per UInt64 word (existence,
+#     with a witness);
+#
+#   - Semiring(zero, one, add, mul, atomic): dense entries of the type
+#     of zero, for any commutative semiring. `atomic(ptr, x)` must do
+#     *ptr = add(*ptr, x) atomically (CUDA.atomic_or! for Booleans,
+#     CUDA.atomic_add! for counting, CUDA.atomic_min! for min-plus).
+#     contract returns the value at the root (and a witness when
+#     witness=true and the semiring is Boolean-like: nonzero = exists).
+#
+# The value of a column x of Full_t is the product of the messages of
+# its done children at its projections, so the message of t is
+#
+#    v_t[b] = ⊕ { value(x) : proj(x) = b }
+#
+# and, with one child c undone,
+#
+#    M_t[a, b] = ⊕ { value(x) : proj_c(x) = a, proj(x) = b }.
+#
+struct BoolPacked end
+
+struct Semiring{T, A, M, F}
+    zero::T
+    one::T
+    add::A
+    mul::M
+    atomic::F
+end
+
+boolean() = Semiring(zero(UInt32), one(UInt32), |, &, CUDA.atomic_or!)
+
+counting(::Type{T}=Float64) where {T} = Semiring(zero(T), one(T), +, *, CUDA.atomic_add!)
+
+eltype_(::BoolPacked) = UInt64
+eltype_(S::Semiring{T}) where {T} = T
+
+# words per message of a bag with L entries
+width(::BoolPacked, L) = cld(L, 64)
+width(::Semiring, L) = L
 
 @inline function bit(w::UInt64, b)
-    return isone((w >> (b - one(b))) & one(UInt64))
+    return isone((w >> ((b - one(b)) & 63)) & one(UInt64))
 end
 
 @inline function setbit(b)
-    return one(UInt64) << (b - one(b))
+    return one(UInt64) << ((b - one(b)) & 63)
 end
 
-# the bag table of D' (the bag is its own separator): column x of bag t
+@inline function word(b)
+    return ((b - one(b)) >> 6) + one(b)
+end
+
+# column x of bag t of the local tables
 @inline function full(tab, xtab, m, t, x, k)
     @inbounds return tab[xtab[t] + (x - one(J)) * m[t] + k - one(J)]
 end
 
-function lockernel!(tab, xtab, F, m, s, xF, proj, locfirst, L, flag, nt)
+# the bag holding entry g of a CSR-like offset vector off (off[1] = 0)
+@inline function owner(off, g, n)
+    lo = one(J)
+    hi = n
+
+    @inbounds while lo < hi
+        mid = (lo + hi + one(J)) >>> one(J)
+
+        if off[mid] < g
+            lo = mid
+        else
+            hi = mid - one(J)
+        end
+    end
+
+    return lo
+end
+
+#
+# entry b of the message of bag c
+#
+@inline function msg(::BoolPacked, v, voff, c, b)
+    @inbounds return bit(v[voff[c] + word(b)], b)
+end
+
+@inline function msg(::Semiring, v, voff, c, b)
+    @inbounds return v[voff[c] + b]
+end
+
+@inline function isnz(::BoolPacked, x::Bool)
+    return x
+end
+
+@inline function isnz(S::Semiring, x)
+    return x != S.zero
+end
+
+#
+# the value of column x of bag t: the product over its done children
+# (except skip) of their messages
+#
+@inline function colval(alg::BoolPacked, xch, chl, xC, cproj, done, v, voff, t, x, skip)
+    nch = xch[t + one(J)] - xch[t]
+
+    @inbounds for j in one(J):nch
+        c = chl[xch[t] + j - one(J)]
+
+        if c != skip && isone(done[c])
+            p = cproj[xC[t] + (x - one(J)) * nch + j]
+
+            if iszero(p) || !msg(alg, v, voff, c, p)
+                return false
+            end
+        end
+    end
+
+    return true
+end
+
+@inline function colval(alg::Semiring, xch, chl, xC, cproj, done, v, voff, t, x, skip)
+    nch = xch[t + one(J)] - xch[t]
+    r = alg.one
+
+    @inbounds for j in one(J):nch
+        c = chl[xch[t] + j - one(J)]
+
+        if c != skip && isone(done[c])
+            p = cproj[xC[t] + (x - one(J)) * nch + j]
+
+            if iszero(p)
+                return alg.zero
+            end
+
+            r = alg.mul(r, msg(alg, v, voff, c, p))
+        end
+    end
+
+    return r
+end
+
+#
+# accumulate x into entry (row, b) of a matrix or message at offset o
+# with row stride rs
+#
+@inline function accum!(::BoolPacked, A, o, rs, row, b, x)
+    if x
+        CUDA.atomic_or!(pointer(A, o + (row - one(row)) * rs + word(b)), setbit(b))
+    end
+
+    return
+end
+
+@inline function accum!(S::Semiring, A, o, rs, row, b, x)
+    if x != S.zero
+        S.atomic(pointer(A, o + (row - one(row)) * rs + b), x)
+    end
+
+    return
+end
+
+#
+# Loc_t: runs of equal separators among the columns of Full_t
+#
+function lockernel!(tab, xtab, F, m, s, xF, proj, locfirst, L, nt)
     t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
 
     @inbounds if t <= nt
@@ -40,20 +190,13 @@ function lockernel!(tab, xtab, F, m, s, xF, proj, locfirst, L, flag, nt)
 
             if new
                 n += one(J)
-
-                if n <= J(B)
-                    locfirst[(t - one(J)) * J(B) + n] = x
-                end
+                locfirst[xF[t] + n] = x
             end
 
             proj[xF[t] + x] = n
         end
 
         L[t] = n
-
-        if n > J(B)
-            flag[one(J)] = one(J)
-        end
     end
 
     return
@@ -76,7 +219,7 @@ function cprojkernel!(tab, xtab, F, m, s, L, locfirst, xch, chl, cpoff, cpos, xC
 
             while lo <= hi
                 mid = (lo + hi) >>> one(J)
-                y = locfirst[(c - one(J)) * J(B) + mid]
+                y = locfirst[xF[c] + mid]
                 cmp = zero(J)
 
                 for i in one(J):s[c]
@@ -107,59 +250,21 @@ function cprojkernel!(tab, xtab, F, m, s, L, locfirst, xch, chl, cpoff, cpos, xC
 end
 
 #
-# is column x of bag t consistent with its done children?
+# chain bags: undone, exactly one undone child (ptr, at slot chj)
 #
-@inline function ok(xch, chl, xC, cproj, done, v, t, x, skip)
-    nch = xch[t + one(J)] - xch[t]
-
-    @inbounds for j in one(J):nch
-        c = chl[xch[t] + j - one(J)]
-
-        if c != skip && isone(done[c])
-            p = cproj[xC[t] + (x - one(J)) * nch + j]
-
-            if iszero(p) || !bit(v[c], p)
-                return false
-            end
-        end
-    end
-
-    return true
-end
-
-#
-# chain bags (one undone child c): M_t[a] = the b reachable from a ∈ Loc_c
-#
-function chainkernel!(F, xF, proj, xch, chl, xC, cproj, done, nund, v, chain, ptr, M, nt)
+function chainkernel!(xch, chl, done, nund, chain, ptr, chj, nt)
     t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
 
     @inbounds if t <= nt
         if iszero(done[t]) && isone(nund[t])
             chain[t] = one(J)
-            nch = xch[t + one(J)] - xch[t]
-            jc = zero(J)
-            c = zero(J)
 
-            for j in one(J):nch
-                if iszero(done[chl[xch[t] + j - one(J)]])
-                    jc = j
-                    c = chl[xch[t] + j - one(J)]
-                end
-            end
+            for j in one(J):xch[t + one(J)] - xch[t]
+                c = chl[xch[t] + j - one(J)]
 
-            ptr[t] = c
-
-            for a in one(J):J(B)
-                M[(t - one(J)) * J(B) + a] = zero(UInt64)
-            end
-
-            for x in one(J):F[t]
-                if ok(xch, chl, xC, cproj, done, v, t, x, c)
-                    p = cproj[xC[t] + (x - one(J)) * nch + jc]
-
-                    if p > zero(J)
-                        M[(t - one(J)) * J(B) + p] |= setbit(proj[xF[t] + x])
-                    end
+                if iszero(done[c])
+                    ptr[t] = c
+                    chj[t] = j
                 end
             end
         else
@@ -170,39 +275,20 @@ function chainkernel!(F, xF, proj, xch, chl, xC, cproj, done, nund, v, chain, pt
     return
 end
 
-#
-# one thread per row a of a chain bag t
-#
-function jumpkernel!(chain, ptr, ptr2, M, M2, flag, nt)
-    i = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
-    t = (i - one(J)) ÷ J(B) + one(J)
-    a = i - (t - one(J)) * J(B)
+function buildkernel!(alg, M, moff, rs, proj, xbag, xF, xch, chl, xC, cproj, done, v, voff, chain, ptr, chj, nx)
+    g = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
 
-    @inbounds if t <= nt && isone(chain[t])
-        u = ptr[t]
-        o = (t - one(J)) * J(B)
+    @inbounds if g <= nx
+        t = xbag[g]
 
-        if isone(chain[u])
-            w = M[(u - one(J)) * J(B) + a]
-            r = zero(UInt64)
+        if isone(chain[t])
+            x = g - xF[t]
+            nch = xch[t + one(J)] - xch[t]
+            p = cproj[xC[t] + (x - one(J)) * nch + chj[t]]
 
-            while !iszero(w)
-                b = J(trailing_zeros(w)) + one(J)
-                r |= M[o + b]
-                w &= w - one(UInt64)
-            end
-
-            M2[o + a] = r
-
-            if isone(a)
-                ptr2[t] = ptr[u]
-                flag[one(J)] = one(J)
-            end
-        else
-            M2[o + a] = M[o + a]
-
-            if isone(a)
-                ptr2[t] = u
+            if p > zero(J)
+                val = colval(alg, xch, chl, xC, cproj, done, v, voff, t, x, ptr[t])
+                accum!(alg, M, moff[t], rs[t], p, proj[g], val)
             end
         end
     end
@@ -210,54 +296,171 @@ function jumpkernel!(chain, ptr, ptr2, M, M2, flag, nt)
     return
 end
 
-function rakekernel!(F, xF, proj, xch, chl, xC, cproj, done, nund, v, newd, nt)
-    t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+#
+# one thread per word (packed) or entry (dense) of every matrix:
+# M2_t = M_u ⋅ M_t if u = ptr[t] is a chain bag
+#
+function jumpkernel!(alg, chain, ptr, ptr2, L, M, M2, moff, rs, flag, nt, total)
+    g = (Int(blockIdx().x) - 1) * Int(blockDim().x) + Int(threadIdx().x)
 
-    @inbounds if t <= nt
-        newd[t] = zero(J)
+    @inbounds if g <= total
+        t = owner(moff, g, nt)
 
-        if iszero(done[t]) && iszero(nund[t])
-            r = zero(UInt64)
+        if isone(chain[t])
+            e = g - moff[t]                   # entry within M_t
+            a = J((e - one(e)) ÷ rs[t]) + one(J)   # row
+            w = J(e - (a - one(J)) * rs[t])   # word or column
+            u = ptr[t]
 
-            for x in one(J):F[t]
-                if ok(xch, chl, xC, cproj, done, v, t, x, zero(J))
-                    r |= setbit(proj[xF[t] + x])
+            if isone(chain[u])
+                if a <= L[ptr[u]]
+                    M2[g] = jumpentry(alg, M, moff, rs, L, t, u, a, w)
+                else
+                    M2[g] = zero(eltype(M2))
+                end
+
+                if isone(a) && isone(w)
+                    ptr2[t] = ptr[u]
+                    flag[one(J)] = one(J)
+                end
+            else
+                M2[g] = M[g]
+
+                if isone(a) && isone(w)
+                    ptr2[t] = u
                 end
             end
-
-            v[t] = r
-            newd[t] = one(J)
         end
     end
 
     return
 end
 
-function finkernel!(chain, ptr, done, v, M, newd, nt)
+@inline function jumpentry(::BoolPacked, M, moff, rs, L, t, u, a, w)
+    r = zero(UInt64)
+    ou = moff[u] + (a - one(J)) * rs[u]
+
+    @inbounds for k in one(J):rs[u]
+        x = M[ou + k]
+
+        while !iszero(x)
+            b = J(trailing_zeros(x)) + (k - one(J)) * J(64) + one(J)
+            r |= M[moff[t] + (b - one(J)) * rs[t] + w]
+            x &= x - one(UInt64)
+        end
+    end
+
+    return r
+end
+
+@inline function jumpentry(S::Semiring, M, moff, rs, L, t, u, a, w)
+    r = S.zero
+    ou = moff[u] + (a - one(J)) * rs[u]
+
+    @inbounds for b in one(J):L[u]
+        x = M[ou + b]
+
+        if x != S.zero
+            r = S.add(r, S.mul(x, M[moff[t] + (b - one(J)) * rs[t] + w]))
+        end
+    end
+
+    return r
+end
+
+#
+# bags to rake (all children done): zero their messages
+#
+function rakemarkkernel!(done, nund, newd, v, voff, rs, nt)
     t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
 
     @inbounds if t <= nt
-        newd[t] = zero(J)
-
-        if isone(chain[t]) && isone(done[ptr[t]])
-            w = v[ptr[t]]
-            r = zero(UInt64)
-
-            while !iszero(w)
-                a = J(trailing_zeros(w)) + one(J)
-                r |= M[(t - one(J)) * J(B) + a]
-                w &= w - one(UInt64)
-            end
-
-            v[t] = r
+        if iszero(done[t]) && iszero(nund[t])
             newd[t] = one(J)
+
+            for k in one(J):rs[t]
+                v[voff[t] + k] = zero(eltype(v))
+            end
+        else
+            newd[t] = zero(J)
         end
     end
 
     return
 end
 
-function updatekernel!(newd, done, nund, parent, v, flag, nt)
+function rakekernel!(alg, v, voff, rs, proj, xbag, xF, xch, chl, xC, cproj, done, newd, nx)
+    g = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+
+    @inbounds if g <= nx
+        t = xbag[g]
+
+        if isone(newd[t])
+            val = colval(alg, xch, chl, xC, cproj, done, v, voff, t, g - xF[t], zero(J))
+            accum!(alg, v, voff[t], zero(J), one(J), proj[g], val)
+        end
+    end
+
+    return
+end
+
+function finmarkkernel!(chain, ptr, done, newd, nt)
+    t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+
+    @inbounds if t <= nt
+        newd[t] = isone(chain[t]) && isone(done[ptr[t]]) ? one(J) : zero(J)
+    end
+
+    return
+end
+
+# one thread per word (entry) of every message: v_t = v_ptr ⋅ M_t
+function finkernel!(alg, newd, ptr, L, v, voff, M, moff, rs, nt, total)
+    g = (Int(blockIdx().x) - 1) * Int(blockDim().x) + Int(threadIdx().x)
+
+    @inbounds if g <= total
+        t = owner(voff, g, nt)
+
+        if isone(newd[t])
+            w = J(g - voff[t])
+            v[g] = finentry(alg, v, voff, M, moff, rs, L, ptr[t], t, w)
+        end
+    end
+
+    return
+end
+
+@inline function finentry(::BoolPacked, v, voff, M, moff, rs, L, c, t, w)
+    r = zero(UInt64)
+
+    @inbounds for k in one(J):rs[c]
+        x = v[voff[c] + k]
+
+        while !iszero(x)
+            a = J(trailing_zeros(x)) + (k - one(J)) * J(64) + one(J)
+            r |= M[moff[t] + (a - one(J)) * rs[t] + w]
+            x &= x - one(UInt64)
+        end
+    end
+
+    return r
+end
+
+@inline function finentry(S::Semiring, v, voff, M, moff, rs, L, c, t, w)
+    r = S.zero
+
+    @inbounds for a in one(J):L[c]
+        x = v[voff[c] + a]
+
+        if x != S.zero
+            r = S.add(r, S.mul(x, M[moff[t] + (a - one(J)) * rs[t] + w]))
+        end
+    end
+
+    return r
+end
+
+function updatekernel!(alg, newd, done, nund, parent, v, voff, rs, L, flag, nt)
     t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
 
     @inbounds if t <= nt && isone(newd[t])
@@ -268,7 +471,15 @@ function updatekernel!(newd, done, nund, parent, v, flag, nt)
             CUDA.atomic_sub!(pointer(nund, p), one(J))
         end
 
-        if iszero(v[t])
+        empty = true
+
+        for k in one(J):rs[t]
+            if v[voff[t] + k] != zero(eltype(v))
+                empty = false
+            end
+        end
+
+        if empty
             flag[one(J)] = one(J)
         end
     end
@@ -276,67 +487,64 @@ function updatekernel!(newd, done, nund, parent, v, flag, nt)
     return
 end
 
-function xselkernel!(F, xF, proj, xch, chl, xC, cproj, done, v, xsel, nt)
-    t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+#
+# witness
+#
+function xselkernel!(alg, xsel, v, voff, proj, xbag, xF, xch, chl, xC, cproj, done, nx)
+    g = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
 
-    @inbounds if t <= nt
-        o = (t - one(J)) * J(B)
+    @inbounds if g <= nx
+        t = xbag[g]
+        x = g - xF[t]
+        b = proj[g]
 
-        for b in one(J):J(B)
-            xsel[o + b] = zero(J)
-        end
-
-        for x in one(J):F[t]
-            b = proj[xF[t] + x]
-
-            if bit(v[t], b) && iszero(xsel[o + b]) && ok(xch, chl, xC, cproj, done, v, t, x, zero(J))
-                xsel[o + b] = x
-            end
+        if isnz(alg, msg(alg, v, voff, t, b)) && isnz(alg, colval(alg, xch, chl, xC, cproj, done, v, voff, t, x, zero(J)))
+            CUDA.atomic_min!(pointer(xsel, xF[t] + b), x)
         end
     end
 
     return
 end
 
-function fkernel!(parent, slot, xch, xC, cproj, xsel, f, nt)
-    t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+function fkernel!(parent, slot, xch, xC, cproj, xF, L, xsel, f, maxL, nt)
+    g = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+    t = (g - one(J)) ÷ maxL + one(J)
+    b = g - (t - one(J)) * maxL
 
     @inbounds if t <= nt
         p = parent[t]
-        o = (t - one(J)) * J(B)
 
-        if p > zero(J)
+        if p > zero(J) && b <= L[p]
             nch = xch[p + one(J)] - xch[p]
-
-            for b in one(J):J(B)
-                x = xsel[(p - one(J)) * J(B) + b]
-                f[o + b] = iszero(x) ? zero(J) : cproj[xC[p] + (x - one(J)) * nch + slot[t]]
-            end
+            x = xsel[xF[p] + b]
+            f[g] = x == typemax(J) ? zero(J) : cproj[xC[p] + (x - one(J)) * nch + slot[t]]
+        else
+            f[g] = zero(J)
         end
     end
 
     return
 end
 
-function fjumpkernel!(anc, anc2, f, g, root, flag, nt)
-    i = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
-    t = (i - one(J)) ÷ J(B) + one(J)
-    b = i - (t - one(J)) * J(B)
+function fjumpkernel!(anc, anc2, f, g_, root, flag, maxL, nt)
+    g = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+    t = (g - one(J)) ÷ maxL + one(J)
+    b = g - (t - one(J)) * maxL
 
     @inbounds if t <= nt
         a = anc[t]
-        o = (t - one(J)) * J(B)
+        o = (t - one(J)) * maxL
 
         if a > zero(J) && a != root
-            y = f[(a - one(J)) * J(B) + b]
-            g[o + b] = iszero(y) ? zero(J) : f[o + y]
+            y = f[(a - one(J)) * maxL + b]
+            g_[g] = iszero(y) ? zero(J) : f[o + y]
 
             if isone(b)
                 anc2[t] = anc[a]
                 flag[one(J)] = one(J)
             end
         else
-            g[o + b] = f[o + b]
+            g_[g] = f[g]
 
             if isone(b)
                 anc2[t] = a
@@ -347,13 +555,12 @@ function fjumpkernel!(anc, anc2, f, g, root, flag, nt)
     return
 end
 
-function hkernel!(tab, xtab, m, s, ord, xpos, xsel, f, v, h, root, nt)
+function hkernel!(tab, xtab, m, s, ord, xpos, xF, xsel, f, h, br, root, maxL, nt)
     t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
 
     @inbounds if t <= nt
-        br = J(trailing_zeros(v[root])) + one(J)
-        b = t == root ? br : f[(t - one(J)) * J(B) + br]
-        x = xsel[(t - one(J)) * J(B) + b]
+        b = t == root ? br : f[(t - one(J)) * maxL + br]
+        x = xsel[xF[t] + b]
 
         for k in s[t] + one(J):m[t]
             h[ord[xpos[t] + k]] = full(tab, xtab, m, t, x, k)
@@ -364,11 +571,23 @@ function hkernel!(tab, xtab, m, s, ord, xpos, xsel, f, v, h, root, nt)
 end
 
 #
-# Find a homomorphism D.inst → Y, or nothing, by tree contraction.
-# Returns :wide if some separator domain has more than 64 assignments.
+# Everything that depends only on the decomposition.
 #
-function contract(D::Decomposition{I}, Y::Instance{I}; stats=nothing, kw...) where {I}
-    tst = time_ns()
+struct ContractPrep{I, P, V}
+    D::Decomposition{I}
+    Dl::P          # Prepared for D' (every bag its own separator)
+    sD::V
+    sDh::Vector{J}
+    nch::Vector{J}
+    xch::V
+    chl::V
+    parent::V
+    slot::V
+    cpoff::V
+    cpos::V
+end
+
+function prepare_contract(D::Decomposition{I}) where {I}
     X = D.inst
     nt = D.tree.nu
     nu = X.dom.nu
@@ -397,46 +616,19 @@ function contract(D::Decomposition{I}, Y::Instance{I}; stats=nothing, kw...) whe
     sep = Span{I}(nt, nu, q - one(I), FVector{I}(xadj), FVector{I}(adjncy))
     res = Span{I}(nt, nu, nu, FVector{I}(ones(I, nt + one(I))), D.res.adjncy)
     T0 = Span{I}(nt, nt, zero(I), FVector{I}(ones(I, nt + one(I))), FVector{I}(I[]))
-    Dl = Decomposition{I}(X, res, sep, T0)
-    st0 = Dict{Symbol, Any}()
-    R = color(Dl, Y; keep=true, stats=st0, kw...)
-    tlocal = time_ns()
-
-    if isnothing(R)
-        return
-    end
-
-    tab, xtab, Fd, Pc, yord = R.tab, R.xtab, R.ncol, R.Pc, R.yord
-    F = Array(Fd)
-    tl1 = time_ns()
-    #
-    # the tree of D
-    #
+    Dl = prepare(Decomposition{I}(X, res, sep, T0))
+    Pc = Dl.Pc
     sD = J[D.sep.xadj[t + one(I)] - D.sep.xadj[t] for t in oneto(nt)]
     nch = J[D.tree.xadj[t + one(I)] - D.tree.xadj[t] for t in oneto(nt)]
     xch = J.(collect(D.tree.xadj))
     chl = J[D.tree.adjncy[p] for p in 1:D.tree.xadj[nt + one(I)] - one(I)]
     parent = zeros(J, nt)
     slot = zeros(J, nt)
-    xF = zeros(J, nt)
-    xC = zeros(J, nt)
     cpoff = Vector{J}(undef, length(chl))
     cpos = J[]
     pos = zeros(J, nu)
-    accF = 0
-    accC = 0
-
-    xbag = Vector{J}(undef, sum(F))
 
     for t in oneto(nt)
-        for x in 1:F[t]
-            xbag[accF + x] = t
-        end
-
-        xF[t] = accF
-        xC[t] = accC
-        accF += F[t]
-        accC += F[t] * nch[t]
         po = Pc.xpos[t]
 
         for k in 1:Pc.m[t]
@@ -457,45 +649,120 @@ function contract(D::Decomposition{I}, Y::Instance{I}; stats=nothing, kw...) whe
         end
     end
 
-    tl2 = time_ns()
+    d(x) = CuVector{J}(isempty(x) ? J[0] : x)
+    return ContractPrep(D, Dl, d(sD), sD, nch, d(xch), d(chl), d(parent), d(slot), d(cpoff), d(cpos))
+end
+
+function contract(D::Decomposition{I}, Y::Instance{I}; kw...) where {I}
+    return contract(prepare_contract(D), Y; kw...)
+end
+
+#
+# Find a homomorphism D.inst → Y, or nothing, by tree contraction.
+# Returns :wide if the matrices would not fit in maxbytes of device
+# memory. With a Semiring alg and witness=false, returns the message of
+# the root (for counting: the number of homomorphisms).
+#
+function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=alg isa BoolPacked,
+        maxbytes=CUDA.total_memory() ÷ 4, stats=nothing, kw...) where {I}
+    tst = time_ns()
+    D = C.D
+    X = D.inst
+    nt = D.tree.nu
+    nu = X.dom.nu
+    st0 = Dict{Symbol, Any}()
+    R = color(C.Dl, Y; keep=true, stats=st0, kw...)
+    tlocal = time_ns()
+
+    if isnothing(R)
+        return witness ? nothing : alg.zero
+    end
+
+    tab, xtab, Fd, Pc, yord = R.tab, R.xtab, R.ncol, R.Pc, R.yord
+    F = Array(Fd)
+    nch = C.nch
+    xF = Vector{J}(undef, nt)
+    xC = Vector{J}(undef, nt)
+    nx = Int(sum(F))
+    xbag = Vector{J}(undef, nx)
+    accF = 0
+    accC = 0
+
+    for t in oneto(nt)
+        for x in 1:F[t]
+            xbag[accF + x] = t
+        end
+
+        xF[t] = accF
+        xC[t] = accC
+        accF += F[t]
+        accC += F[t] * nch[t]
+    end
+
     d(x) = CuVector{J}(x)
-    md = d(Pc.m); sd = d(sD); xFd = d(xF); xCd = d(xC); xchd = d(xch); chld = d(chl)
-    cpoffd = d(cpoff); cposd = d(isempty(cpos) ? J[0] : cpos); parentd = d(parent); slotd = d(slot)
+    md = d(Pc.m); xFd = d(xF); xCd = d(xC); xbagd = d(xbag)
     ordd = d(Pc.ord); xposd = d(Pc.xpos)
-    proj = CuVector{J}(undef, max(accF, 1))
+    sd, xchd, chld, parentd, slotd, cpoffd, cposd = C.sD, C.xch, C.chl, C.parent, C.slot, C.cpoff, C.cpos
+    proj = CuVector{J}(undef, max(nx, 1))
     cproj = CuVector{J}(undef, max(accC, 1))
-    locfirst = CuVector{J}(undef, B * nt)
+    locfirst = CuVector{J}(undef, max(nx, 1))
     L = CuVector{J}(undef, nt)
     flag = CUDA.zeros(J, 1)
     th = 256
     bl = cld(nt, th)
-    @cuda threads=th blocks=bl lockernel!(tab, xtab, Fd, md, sd, xFd, proj, locfirst, L, flag, J(nt))
+    bx = cld(max(nx, 1), th)
+    @cuda threads=th blocks=bl lockernel!(tab, xtab, Fd, md, sd, xFd, proj, locfirst, L, J(nt))
+    Lh = Array(L)
+    maxL = Int(maximum(Lh))
+    #
+    # storage: M_t has maxL rows (its row domain is the Loc of a
+    # descendant) of width(L_t) words; messages have width(L_t)
+    #
+    E = eltype_(alg)
+    rsh = J[width(alg, Lh[t]) for t in 1:nt]
+    moffh = zeros(Int, nt + 1)
+    voffh = zeros(Int, nt + 1)
 
-    if isone(Array(flag)[1])
+    for t in 1:nt
+        moffh[t + 1] = moffh[t] + maxL * rsh[t]
+        voffh[t + 1] = voffh[t] + rsh[t]
+    end
+
+    Mtot = moffh[nt + 1]
+    Vtot = voffh[nt + 1]
+
+    if (2Mtot + Vtot) * sizeof(E) + 3 * nt * maxL * sizeof(J) > maxbytes
         return :wide
     end
 
-    @cuda threads=th blocks=cld(accF, th) cprojkernel!(tab, xtab, Fd, md, sd, L, locfirst, xchd, chld, cpoffd, cposd, xCd, cproj, d(xbag), xFd, J(accF))
+    @cuda threads=th blocks=bx cprojkernel!(tab, xtab, Fd, md, sd, L, locfirst, xchd, chld, cpoffd, cposd, xCd, cproj, xbagd, xFd, J(nx))
+    rs = d(rsh); moff = CuVector{Int}(moffh); voff = CuVector{Int}(voffh)
     #
     # contraction
     #
-    done = CUDA.zeros(J, nt); nund = d(nch); v = CUDA.zeros(UInt64, nt)
-    chain = CUDA.zeros(J, nt); ptr = CUDA.zeros(J, nt); ptr2 = CUDA.zeros(J, nt)
-    M = CuVector{UInt64}(undef, B * nt); M2 = CuVector{UInt64}(undef, B * nt)
+    done = CUDA.zeros(J, nt); nund = d(nch); v = CUDA.zeros(E, max(Vtot, 1))
+    chain = CUDA.zeros(J, nt); ptr = CUDA.zeros(J, nt); ptr2 = CUDA.zeros(J, nt); chj = CUDA.zeros(J, nt)
+    M = CuVector{E}(undef, max(Mtot, 1)); M2 = CuVector{E}(undef, max(Mtot, 1))
     newd = CUDA.zeros(J, nt)
     root = J(nt)
     nphase = 0
     njump = 0
     status = Vector{J}(undef, 1)
+    bm = cld(max(Mtot, 1), th)
+    bv = cld(max(Vtot, 1), th)
+    tjump = 0.0
 
     while true
         nphase += 1
         nphase > nt + 1 && error("contraction did not finish")
-        @cuda threads=th blocks=bl chainkernel!(Fd, xFd, proj, xchd, chld, xCd, cproj, done, nund, v, chain, ptr, M, J(nt))
+        @cuda threads=th blocks=bl chainkernel!(xchd, chld, done, nund, chain, ptr, chj, J(nt))
+        fill!(M, zero(E))
+        @cuda threads=th blocks=bx buildkernel!(alg, M, moff, rs, proj, xbagd, xFd, xchd, chld, xCd, cproj, done, v, voff, chain, ptr, chj, J(nx))
+        tj = time_ns()
 
         while true
             flag .= zero(J)
-            @cuda threads=th blocks=cld(B * nt, th) jumpkernel!(chain, ptr, ptr2, M, M2, flag, J(nt))
+            @cuda threads=th blocks=bm jumpkernel!(alg, chain, ptr, ptr2, L, M, M2, moff, rs, flag, J(nt), Mtot)
             ptr, ptr2 = ptr2, ptr
             M, M2 = M2, M
             njump += 1
@@ -503,14 +770,17 @@ function contract(D::Decomposition{I}, Y::Instance{I}; stats=nothing, kw...) whe
             iszero(status[1]) && break
         end
 
+        tjump += time_ns() - tj
         flag .= zero(J)
-        @cuda threads=th blocks=bl rakekernel!(Fd, xFd, proj, xchd, chld, xCd, cproj, done, nund, v, newd, J(nt))
-        @cuda threads=th blocks=bl updatekernel!(newd, done, nund, parentd, v, flag, J(nt))
-        @cuda threads=th blocks=bl finkernel!(chain, ptr, done, v, M, newd, J(nt))
-        @cuda threads=th blocks=bl updatekernel!(newd, done, nund, parentd, v, flag, J(nt))
+        @cuda threads=th blocks=bl rakemarkkernel!(done, nund, newd, v, voff, rs, J(nt))
+        @cuda threads=th blocks=bx rakekernel!(alg, v, voff, rs, proj, xbagd, xFd, xchd, chld, xCd, cproj, done, newd, J(nx))
+        @cuda threads=th blocks=bl updatekernel!(alg, newd, done, nund, parentd, v, voff, rs, L, flag, J(nt))
+        @cuda threads=th blocks=bl finmarkkernel!(chain, ptr, done, newd, J(nt))
+        @cuda threads=th blocks=bv finkernel!(alg, newd, ptr, L, v, voff, M, moff, rs, J(nt), Vtot)
+        @cuda threads=th blocks=bl updatekernel!(alg, newd, done, nund, parentd, v, voff, rs, L, flag, J(nt))
         copyto!(status, flag)
 
-        if isone(status[1])
+        if isone(status[1]) && witness
             stats === nothing || (stats[:phases] = nphase; stats[:jumps] = njump)
             return
         end
@@ -521,18 +791,26 @@ function contract(D::Decomposition{I}, Y::Instance{I}; stats=nothing, kw...) whe
     end
 
     tfwd = time_ns()
+
+    if !witness
+        vr = Array(view(v, voffh[nt] + 1:voffh[nt] + rsh[nt]))
+        stats === nothing || (stats[:phases] = nphase; stats[:jumps] = njump)
+        return isempty(vr) ? alg.zero : vr[1]
+    end
     #
     # witness
     #
-    xsel = CuVector{J}(undef, B * nt); f = CUDA.zeros(J, B * nt); g = CUDA.zeros(J, B * nt)
-    anc = parentd; anc2 = CUDA.zeros(J, nt)
-    @cuda threads=th blocks=bl xselkernel!(Fd, xFd, proj, xchd, chld, xCd, cproj, done, v, xsel, J(nt))
-    @cuda threads=th blocks=bl fkernel!(parentd, slotd, xchd, xCd, cproj, xsel, f, J(nt))
+    xsel = CUDA.fill(typemax(J), max(nx, 1))
+    f = CuVector{J}(undef, nt * maxL); g = CuVector{J}(undef, nt * maxL)
+    anc2 = CUDA.zeros(J, nt)
+    bf = cld(nt * maxL, th)
+    @cuda threads=th blocks=bx xselkernel!(alg, xsel, v, voff, proj, xbagd, xFd, xchd, chld, xCd, cproj, done, J(nx))
+    @cuda threads=th blocks=bf fkernel!(parentd, slotd, xchd, xCd, cproj, xFd, L, xsel, f, J(maxL), J(nt))
     anc = copy(parentd)
 
     while true
         flag .= zero(J)
-        @cuda threads=th blocks=cld(B * nt, th) fjumpkernel!(anc, anc2, f, g, root, flag, J(nt))
+        @cuda threads=th blocks=bf fjumpkernel!(anc, anc2, f, g, root, flag, J(maxL), J(nt))
         anc, anc2 = anc2, anc
         f, g = g, f
         njump += 1
@@ -540,8 +818,10 @@ function contract(D::Decomposition{I}, Y::Instance{I}; stats=nothing, kw...) whe
         iszero(status[1]) && break
     end
 
+    vroot = Array(view(v, voffh[nt] + 1:voffh[nt] + rsh[nt]))
+    br = J(alg isa BoolPacked ? trailing_zeros(vroot[1]) + 1 : findfirst(!=(alg.zero), vroot))
     h = CUDA.zeros(J, nu)
-    @cuda threads=th blocks=bl hkernel!(tab, xtab, md, sd, ordd, xposd, xsel, f, v, h, root, J(nt))
+    @cuda threads=th blocks=bl hkernel!(tab, xtab, md, sd, ordd, xposd, xFd, xsel, f, h, br, root, J(maxL), J(nt))
     hh = Array(h)
     out = Vector{I}(undef, nu)
 
@@ -552,9 +832,10 @@ function contract(D::Decomposition{I}, Y::Instance{I}; stats=nothing, kw...) whe
     tend = time_ns()
 
     if !isnothing(stats)
-        stats[:lplan] = st0[:plan]; stats[:lsetup] = st0[:setup]; stats[:lfwd] = st0[:fwd]; stats[:ltree] = (tl2 - tl1) / 1e9
+        stats[:lplan] = st0[:plan]; stats[:lsetup] = st0[:setup]; stats[:lfwd] = st0[:fwd]
         stats[:local] = (tlocal - tst) / 1e9; stats[:contract] = (tfwd - tlocal) / 1e9; stats[:witness] = (tend - tfwd) / 1e9
-        stats[:phases] = nphase; stats[:jumps] = njump; stats[:maxL] = maximum(Array(L))
+        stats[:jumptime] = tjump / 1e9
+        stats[:phases] = nphase; stats[:jumps] = njump; stats[:maxL] = maxL; stats[:mbytes] = (2Mtot + Vtot) * sizeof(E)
     end
 
     return out
