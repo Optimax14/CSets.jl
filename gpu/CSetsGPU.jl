@@ -961,4 +961,30 @@ end
 
 include("contractgpu.jl")
 
+#
+# Pick a method: contraction when every separator domain fits in 64
+# assignments, else level-synchronous search when the tree is shallow,
+# else the CPU.
+#
+function auto(D::Decomposition{I}, Y::Instance{I}; maxlevels=256, kw...) where {I}
+    h = contract(D, Y; kw...)
+
+    if h !== :wide
+        return h
+    end
+
+    nt = D.tree.nu
+    hgt = zeros(Int, nt)
+
+    for t in oneto(nt), j in D.tree.xadj[t]:D.tree.xadj[t + one(I)] - one(I)
+        hgt[t] = max(hgt[t], hgt[D.tree.adjncy[j]] + 1)
+    end
+
+    if hgt[nt] < maxlevels
+        return color(D, Y; kw...)
+    else
+        return CSets.color(D, Y)
+    end
+end
+
 end # module
