@@ -15,21 +15,38 @@ function color(D::Decomposition{I}, Y::Instance{I}) where {I}
 
     mbag = zero(I)
     mnar = zero(I)
+    mchk = zero(I)
 
     for t in oneto(nt)
-        nres = D.res.xadj[t + one(I)] - D.res.xadj[t]
-        nsep = D.sep.xadj[t + one(I)] - D.sep.xadj[t]
+        rstrt = D.res.xadj[t]
+        rstop = D.res.xadj[t + one(I)] - one(I)
+        sstrt = D.sep.xadj[t]
+        sstop = D.sep.xadj[t + one(I)] - one(I)
         cstrt = D.tree.xadj[t]
         cstop = D.tree.xadj[t + one(I)] - one(I)
         n = zero(I)
+        d = zero(I)
 
         for j in cstrt:cstop
             c = D.tree.adjncy[j]
             n += D.sep.xadj[c + one(I)] - D.sep.xadj[c] + one(I)
         end
+        #
+        # every check is an edge with both ends in the bag, recorded
+        # once at each end
+        #
+        for x in rstrt:rstop
+            d += X.dom.xadj[x + one(I)] - X.dom.xadj[x]
+        end
 
-        mbag = max(mbag, nres + nsep)
+        for p in sstrt:sstop
+            x = D.sep.adjncy[p]
+            d += X.dom.xadj[x + one(I)] - X.dom.xadj[x]
+        end
+
+        mbag = max(mbag, rstop - rstrt + sstop - sstrt + two(I))
         mnar = max(mnar, n)
+        mchk = max(mchk, two(I) * d)
     end
 
     xsrc = FVector{I}(undef, ne)
@@ -42,6 +59,13 @@ function color(D::Decomposition{I}, Y::Instance{I}) where {I}
     cur  = FVector{I}(undef, mbag)
     stop = FVector{I}(undef, mbag)
     xnar = FVector{I}(undef, mbag + one(I))
+    bknd = FVector{I}(undef, mbag)
+    bpos = FVector{I}(undef, mbag)
+    barc = FVector{I}(undef, mbag)
+    xchk = FVector{I}(undef, mbag + one(I))
+    chka = FVector{I}(undef, mchk)
+    chkp = FVector{I}(undef, mchk)
+    chkd = FVector{Bool}(undef, mchk)
     narc = FVector{I}(undef, mnar)
     nari = FVector{I}(undef, mnar)
     naro = FVector{I}(undef, mnar)
@@ -101,13 +125,13 @@ function color(D::Decomposition{I}, Y::Instance{I}) where {I}
     end
 
     for t in oneto(nt)
-        if !bagsearch!(D, Y, xsrc, xin, pre, base, typ, ord, kind, arg, cur, stop, xnar, narc, nari, naro, rlo, rhi, pos, bag, h, xtab, ncol, tab, ntab, t, true)
+        if !bagsearch!(D, Y, xsrc, xin, pre, base, typ, ord, kind, arg, cur, stop, bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, pos, bag, h, xtab, ncol, tab, ntab, t, true)
             return
         end
     end
 
     for t in nt:-one(I):one(I)
-        bagsearch!(D, Y, xsrc, xin, pre, base, typ, ord, kind, arg, cur, stop, xnar, narc, nari, naro, rlo, rhi, pos, bag, h, xtab, ncol, tab, ntab, t, false)
+        bagsearch!(D, Y, xsrc, xin, pre, base, typ, ord, kind, arg, cur, stop, bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, pos, bag, h, xtab, ncol, tab, ntab, t, false)
     end
 
     out = FVector{I}(undef, nu)
@@ -171,6 +195,13 @@ function bagsearch!(
         arg::AbstractVector{I},
         cur::AbstractVector{I},
         stop::AbstractVector{I},
+        bknd::AbstractVector{I},
+        bpos::AbstractVector{I},
+        barc::AbstractVector{I},
+        xchk::AbstractVector{I},
+        chka::AbstractVector{I},
+        chkp::AbstractVector{I},
+        chkd::AbstractVector{Bool},
         xnar::AbstractVector{I},
         narc::AbstractVector{I},
         nari::AbstractVector{I},
@@ -216,6 +247,69 @@ function bagsearch!(
         bag[x] = t
         pos[x] = k
     end
+    #
+    # Plan the search. For each position k, record
+    #
+    #   - the checks on the element x = ord[k]: each edge between x and
+    #     an element at an earlier position (or x itself), as its arc,
+    #     the other position, and whether the edge leaves x; and
+    #
+    #   - where its candidates come from: the image of an earlier
+    #     element pointing to x (3), the preimages of an earlier
+    #     element x points to (2), or all elements of its type (1),
+    #     with the position and arc that determine them.
+    #
+    q = one(I)
+
+    for k in oneto(m)
+        x = ord[k]
+        xchk[k] = q
+        bknd[k] = one(I)
+        bpos[k] = zero(I)
+        barc[k] = zero(I)
+        qstrt = xin.xadj[x]
+        qstop = xin.xadj[x + one(I)] - one(I)
+
+        for p in qstrt:qstop
+            e = xin.adjncy[p]
+            w = xsrc[e]
+
+            if bag[w] == t && pos[w] < k
+                chka[q] = X.arc[e]
+                chkp[q] = pos[w]
+                chkd[q] = false
+                q += one(I)
+
+                if bknd[k] != two(I) + one(I)
+                    bknd[k] = two(I) + one(I)
+                    bpos[k] = pos[w]
+                    barc[k] = X.arc[e]
+                end
+            end
+        end
+
+        pstrt = X.dom.xadj[x]
+        pstop = X.dom.xadj[x + one(I)] - one(I)
+
+        for p in pstrt:pstop
+            z = X.dom.adjncy[p]
+
+            if pos[z] <= k
+                chka[q] = X.arc[p]
+                chkp[q] = pos[z]
+                chkd[q] = true
+                q += one(I)
+
+                if pos[z] < k && isone(bknd[k])
+                    bknd[k] = two(I)
+                    bpos[k] = pos[z]
+                    barc[k] = X.arc[p]
+                end
+            end
+        end
+    end
+
+    xchk[m + one(I)] = q
     #
     # Each child's table is sorted by its separator in descending
     # order, which is the order in which this search assigns those
@@ -313,42 +407,22 @@ function bagsearch!(
             #   1. all elements of the type of x
             #
             fresh = false
-            kind[k] = zero(I)
-            qstrt = xin.xadj[x]
-            qstop = xin.xadj[x + one(I)] - one(I)
+            kind[k] = bknd[k]
 
-            for q in qstrt:qstop
-                e = xin.adjncy[q]
-                w = xsrc[e]
-
-                if bag[w] == t && pos[w] < k
-                    kind[k] = two(I) + one(I)
-                    arg[k] = image(Y, h[w], X.arc[e])
-                    cur[k] = one(I)
-                    stop[k] = one(I)
-                    break
-                end
-            end
-
-            if iszero(kind[k])
-                u = X.vtx[x]
-                kind[k] = one(I)
-                cur[k] = typ.xadj[u]
-                stop[k] = typ.xadj[u + one(I)] - one(I)
-                pstrt = X.dom.xadj[x]
-                pstop = X.dom.xadj[x + one(I)] - one(I)
-
-                for p in pstrt:pstop
-                    z = X.dom.adjncy[p]
-
-                    if bag[z] == t && pos[z] < k
-                        a = X.arc[p]
-                        l = base[a] + h[z] - typ.xadj[Y.cod.adjncy[a]]
-                        kind[k] = two(I)
-                        cur[k] = pre.xadj[l]
-                        stop[k] = pre.xadj[l + one(I)] - one(I)
-                        break
-                    end
+            if kind[k] == two(I) + one(I)
+                arg[k] = image(Y, h[ord[bpos[k]]], barc[k])
+                cur[k] = one(I)
+                stop[k] = one(I)
+            else
+                if kind[k] == two(I)
+                    a = barc[k]
+                    l = base[a] + h[ord[bpos[k]]] - typ.xadj[Y.cod.adjncy[a]]
+                    cur[k] = pre.xadj[l]
+                    stop[k] = pre.xadj[l + one(I)] - one(I)
+                else
+                    u = X.vtx[x]
+                    cur[k] = typ.xadj[u]
+                    stop[k] = typ.xadj[u + one(I)] - one(I)
                 end
 
                 jstrt = xnar[k]
@@ -429,34 +503,22 @@ function bagsearch!(
             h[x] = y
             valid = true
             #
-            # edges out of x
+            # edges between x and earlier elements
             #
-            pstrt = X.dom.xadj[x]
-            pstop = X.dom.xadj[x + one(I)] - one(I)
+            qstrt = xchk[k]
+            qstop = xchk[k + one(I)] - one(I)
 
-            for p in pstrt:pstop
-                z = X.dom.adjncy[p]
+            for q in qstrt:qstop
+                z = h[ord[chkp[q]]]
 
-                if bag[z] == t && pos[z] <= k && image(Y, y, X.arc[p]) != h[z]
-                    valid = false
-                    break
+                if chkd[q]
+                    valid = image(Y, y, chka[q]) == z
+                else
+                    valid = image(Y, z, chka[q]) == y
                 end
-            end
-            #
-            # edges into x
-            #
-            if valid
-                qstrt = xin.xadj[x]
-                qstop = xin.xadj[x + one(I)] - one(I)
 
-                for q in qstrt:qstop
-                    e = xin.adjncy[q]
-                    w = xsrc[e]
-
-                    if bag[w] == t && pos[w] < k && image(Y, h[w], X.arc[e]) != y
-                        valid = false
-                        break
-                    end
+                if !valid
+                    break
                 end
             end
             #
