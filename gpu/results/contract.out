@@ -1,0 +1,6 @@
+adder≡adder2 n=1000        levels=1438 (rounds = 35, work = 5972864, phases = 5) ref-time=0.52 ok=true
+adder vs buggy n=1000      levels=1403 (rounds = 44, work = 6420993, phases = 4, maxL = 64, maxfull = 256) ref-time=0.51 ok=true
+adder≡adder2 n=10000       levels=12320 (rounds = 38, work = 43797224, phases = 5) ref-time=2.98 ok=true
+adder vs buggy n=10000     levels=19934 (rounds = 56, work = 89805728, phases = 4, maxL = 64, maxfull = 256) ref-time=4.71 ok=true
+grid 4×2000 →K3            levels=7977 (rounds = 47, work = 145975573, phases = 2, maxL = 54, maxfull = 162) ref-time=1.95 ok=true
+grid 6×1000 →K3            levels=2003 (rounds = 43, work = 47983556094, phases = 4, maxL = 1458, maxfull = 13122) ref-time=31.43 ok=true

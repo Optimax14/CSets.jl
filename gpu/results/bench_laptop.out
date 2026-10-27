@@ -1,0 +1,12 @@
+adder≡adder2 n=1000              cpu=0.0241 gpu=0.7844 (fwd 1.0722 bwd 0.0) x0.03 levels=1438 kernels=8463 tabwords=524656 ok=true
+adder vs buggy n=1000            cpu=0.0258 gpu=0.7762 (fwd 0.7332 bwd 0.0358) x0.03 levels=1403 kernels=9242 tabwords=524155 ok=true
+adder≡adder2 n=10000             cpu=0.2433 gpu=8.1646 (fwd 7.7336 bwd 0.0) x0.03 levels=12320 kernels=67765 tabwords=5250620 ok=true
+adder vs buggy n=10000           cpu=0.2825 gpu=13.3101 (fwd 12.0541 bwd 1.386) x0.02 levels=19934 kernels=127560 tabwords=4581376 ok=true
+pk3 n=20000 →K4 bushy=true       cpu=0.1282 gpu=0.0471 (fwd 0.0302 bwd 0.004) x2.72 levels=27 kernels=175 tabwords=2005168 ok=true
+pk4 n=20000 →K5 bushy=true       cpu=0.8055 gpu=0.2227 (fwd 0.1441 bwd 0.0082) x3.62 levels=26 kernels=177 tabwords=14351730 ok=true
+pk6 n=2000 →K7 bushy=true        cpu=8.5399 gpu=2.0689 (fwd 1.3751 bwd 0.0077) x4.13 levels=21 kernels=142 tabwords=166988577 ok=true
+pk4 n=20000 →K5 bushy=false      cpu=1.4943 gpu=2.4518 (fwd 2.0108 bwd 0.2191) x0.61 levels=2707 kernels=20117 tabwords=24151705 ok=true
+grid 4×2000 →K3                  cpu=0.0491 gpu=6.1755 (fwd 6.0055 bwd 0.1634) x0.01 levels=7977 kernels=63769 tabwords=1629246 ok=true
+grid 8×500 →K3                   cpu=1.1971 gpu=1.0955 (fwd 0.9529 bwd 0.0597) x1.09 levels=939 kernels=7504 tabwords=39952188 ok=true
+pk3 n=2000 →G(30,0.3)            cpu=3.1271 gpu=0.2302 (fwd 0.215 bwd 0.0062) x13.59 levels=23 kernels=132 tabwords=5412616 ok=true
+pk4 n=1000 →G(40,0.3)            cpu=47.4287 gpu=4.1846 (fwd 3.677 bwd 0.0129) x11.33 levels=21 kernels=123 tabwords=69579204 ok=true

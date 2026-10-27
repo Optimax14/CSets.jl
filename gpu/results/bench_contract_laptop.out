@@ -1,0 +1,11 @@
+adder≡adder2 n=1000        decomp=0.0078 cpu=0.0246 gpu-contract=0.0065 (local 0.0 [plan 0.0 setup 0.0 fwd 0.0 tree 0.0] contract 0.0 witness 0.0) x3.8 end-to-end x2.26 levels=1438 phases=5 jumps=26 maxL=0 ok=true
+adder vs buggy n=1000      decomp=0.0067 cpu=0.0247 gpu-contract=0.0076 (local 0.0032 [plan 0.0008 setup 0.0013 fwd 0.0018 tree 0.0002] contract 0.0038 witness 0.0006) x3.3 end-to-end x2.2 levels=1403 phases=4 jumps=35 maxL=64 ok=true
+adder≡adder2 n=10000       decomp=0.1231 cpu=0.2464 gpu-contract=0.0588 (local 0.0 [plan 0.0 setup 0.0 fwd 0.0 tree 0.0] contract 0.0 witness 0.0) x4.2 end-to-end x2.03 levels=12320 phases=5 jumps=29 maxL=0 ok=true
+adder vs buggy n=10000     decomp=0.1535 cpu=0.2517 gpu-contract=0.0655 (local 0.0369 [plan 0.0089 setup 0.0122 fwd 0.0224 tree 0.0032] contract 0.0227 witness 0.0058) x3.8 end-to-end x1.85 levels=19934 phases=4 jumps=46 maxL=64 ok=true
+adder≡adder2 n=30000       decomp=0.5045 cpu=0.7346 gpu-contract=0.1966 (local 0.0 [plan 0.0 setup 0.0 fwd 0.0 tree 0.0] contract 0.0 witness 0.0) x3.7 end-to-end x1.77 levels=45546 phases=5 jumps=32 maxL=0 ok=true
+adder vs buggy n=30000     decomp=0.6276 cpu=0.8512 gpu-contract=0.228 (local 0.1224 [plan 0.0248 setup 0.0346 fwd 0.0838 tree 0.0108] contract 0.0838 witness 0.0215) x3.7 end-to-end x1.73 levels=48490 phases=4 jumps=49 maxL=64 ok=true
+grid 4×2000 →K3            decomp=0.0041 cpu=0.0465 gpu-contract=0.0091 (local 0.005 [plan 0.0008 setup 0.0013 fwd 0.0037 tree 0.0003] contract 0.0034 witness 0.0006) x5.1 end-to-end x3.84 levels=7977 phases=2 jumps=41 maxL=54 ok=true
+grid 4×20000 →K3           decomp=0.0372 cpu=0.4726 gpu-contract=0.0825 (local 0.0435 [plan 0.0082 setup 0.0117 fwd 0.0308 tree 0.0018] contract 0.0332 witness 0.0058) x5.7 end-to-end x4.26 levels=79975 phases=2 jumps=52 maxL=54 ok=true
+grid 6×1000 →K3            cpu=0.1506 contraction: separator domain > 64
+pk3 n=20000 →K4 bushy      cpu=0.1255 contraction: separator domain > 64
+pk2 n=20000 →K3 deep       decomp=0.0163 cpu=0.0299 gpu-contract=0.0083 (local 0.0044 [plan 0.0016 setup 0.0023 fwd 0.0019 tree 0.0004] contract 0.0032 witness 0.0006) x3.6 end-to-end x1.88 levels=807 phases=7 jumps=61 maxL=27 ok=true

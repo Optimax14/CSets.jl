@@ -1,0 +1,8 @@
+pk3 n=20000 →K4 bushy=true       cpu=0.1283 gpu=0.0451 (plan 0.0042 setup 0.0056 fwd 0.0215 [search kernels 0.0153] bwd 0.0034) x2.84 levels=27 rounds=168 tabwords=2005168 ok=true
+pk4 n=20000 →K5 bushy=true       cpu=0.833 gpu=0.1469 (plan 0.004 setup 0.006 fwd 0.0988 [search kernels 0.0862] bwd 0.0076) x5.67 levels=26 rounds=192 tabwords=14351730 ok=true
+pk6 n=2000 →K7 bushy=true        cpu=8.5248 gpu=0.8227 (plan 0.0007 setup 0.001 fwd 0.4307 [search kernels 0.3533] bwd 0.0087) x10.36 levels=21 rounds=156 tabwords=166988577 ok=true
+pk4 n=20000 →K5 bushy=false      cpu=1.5288 gpu=3.1977 (plan 0.0041 setup 0.0087 fwd 2.8986 [search kernels 2.3841] bwd 0.1929) x0.48 levels=2707 rounds=14161 tabwords=24151705 ok=true
+grid 4×2000 →K3                  cpu=0.0499 gpu=2.1422 (plan 0.0012 setup 0.002 fwd 2.0202 [search kernels 1.6689] bwd 0.1359) x0.02 levels=7977 rounds=7980 tabwords=1629246 ok=true
+grid 8×500 →K3                   cpu=1.0647 gpu=0.7231 (plan 0.0005 setup 0.0438 fwd 0.479 [search kernels 0.2424] bwd 0.0526) x1.47 levels=939 rounds=8436 tabwords=39952188 ok=true
+pk3 n=2000 →G(30,0.3)            cpu=3.1249 gpu=0.2013 (plan 0.0004 setup 0.0007 fwd 0.1816 [search kernels 0.1715] bwd 0.0056) x15.53 levels=23 rounds=129 tabwords=5412616 ok=true
+pk4 n=1000 →G(40,0.3)            cpu=47.4374 gpu=2.4554 (plan 0.0006 setup 0.0017 fwd 1.8832 [search kernels 1.8604] bwd 0.0121) x19.32 levels=21 rounds=125 tabwords=69579204 ok=true

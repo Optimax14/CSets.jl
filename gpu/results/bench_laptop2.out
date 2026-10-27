@@ -1,0 +1,12 @@
+adder≡adder2 n=1000              cpu=0.0241 gpu=0.2357 (fwd 0.2008 bwd 0.0) x0.1 levels=1438 rounds=1463 tabwords=524656 ok=true
+adder vs buggy n=1000            cpu=0.0246 gpu=0.2693 (fwd 0.2201 bwd 0.0258) x0.09 levels=1403 rounds=1423 tabwords=524155 ok=true
+adder≡adder2 n=10000             cpu=0.2703 gpu=2.697 (fwd 1.456 bwd 0.0) x0.1 levels=12320 rounds=12329 tabwords=5250620 ok=true
+adder vs buggy n=10000           cpu=0.2613 gpu=4.437 (fwd 2.4611 bwd 0.4417) x0.06 levels=19934 rounds=19940 tabwords=4581376 ok=true
+pk3 n=20000 →K4 bushy=true       cpu=0.1294 gpu=0.0968 (fwd 0.0777 bwd 0.0034) x1.34 levels=27 rounds=55 tabwords=2005168 ok=true
+pk4 n=20000 →K5 bushy=true       cpu=0.8105 gpu=0.7445 (fwd 0.6874 bwd 0.0064) x1.09 levels=26 rounds=86 tabwords=14351730 ok=true
+pk6 n=2000 →K7 bushy=true        cpu=8.3025 gpu=1.8792 (fwd 1.2736 bwd 0.0073) x4.42 levels=21 rounds=119 tabwords=166988577 ok=true
+pk4 n=20000 →K5 bushy=false      cpu=1.4804 gpu=7.5524 (fwd 7.2857 bwd 0.1942) x0.2 levels=2707 rounds=2756 tabwords=24151705 ok=true
+grid 4×2000 →K3                  cpu=0.0479 gpu=2.15 (fwd 1.991 bwd 0.1134) x0.02 levels=7977 rounds=7977 tabwords=1629246 ok=true
+grid 8×500 →K3                   cpu=1.0324 gpu=17.383 (fwd 16.9384 bwd 0.0527) x0.06 levels=939 rounds=1000 tabwords=39952188 ok=true
+pk3 n=2000 →G(30,0.3)            cpu=3.1108 gpu=2.7747 (fwd 2.7718 bwd 0.0057) x1.12 levels=23 rounds=61 tabwords=5412616 ok=true
+pk4 n=1000 →G(40,0.3)            cpu=47.3886 gpu=27.6301 (fwd 27.1793 bwd 0.0122) x1.72 levels=21 rounds=96 tabwords=69579204 ok=true

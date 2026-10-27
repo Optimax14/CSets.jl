@@ -1,0 +1,14 @@
+adder≡adder2 n=1000
+   local table cols max/mean=64/19.7  actual max/mean=24/9.2  bitset compose work ≈ 0.008 G word-ops, max L^3/64 = 4096  max sep=7
+adder vs buggy n=1000
+   local table cols max/mean=64/19.4  actual max/mean=64/10.4  bitset compose work ≈ 0.005 G word-ops, max L^3/64 = 4096  max sep=6
+adder≡adder2 n=10000
+   local table cols max/mean=64/20.0  actual max/mean=24/9.1  bitset compose work ≈ 0.083 G word-ops, max L^3/64 = 4096  max sep=7
+adder vs buggy n=10000
+   local table cols max/mean=64/19.3  actual max/mean=56/9.1  bitset compose work ≈ 0.051 G word-ops, max L^3/64 = 4096  max sep=7
+grid 4×2000 →K3
+   local table cols max/mean=54/33.0  actual max/mean=54/33.0  bitset compose work ≈ 0.009 G word-ops, max L^3/64 = 2460  max sep=7
+grid 8×500 →K3
+   local table cols max/mean=19683/2277.1  actual max/mean=10437/1431.8  bitset compose work ≈ 5737.777 G word-ops, max L^3/64 = 119149960702  max sep=10
+pk4 deep →K5
+   local table cols max/mean=6400/184.5  actual max/mean=6400/183.2  bitset compose work ≈ 29.816 G word-ops, max L^3/64 = 4096000000  max sep=18
