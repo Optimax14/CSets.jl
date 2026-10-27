@@ -17,7 +17,7 @@ function okcheck(X, Y, hc, hg)
 end
 if SUITE == "wide"
     cases = Any[]
-    for (w, l, q) in ((4, 100000, 3), (5, 2000, 3), (6, 1000, 3), (5, 1000, 4), (6, 4000, 3), (7, 1000, 3))
+    for (w, l, q) in eval(Meta.parse(get(ENV, "GRIDS", "((4, 100000, 3), (5, 2000, 3), (6, 1000, 3), (5, 1000, 4), (6, 4000, 3), (7, 1000, 3))")))
         nv, E = grid(w, l); X = graphinstance(nv, E); push!(cases, ("grid$(w)x$l-K$q", X, graphsupport(X), complete(q)))
     end
     for (name, X, S, Y) in cases

@@ -659,6 +659,57 @@ function absorbptrkernel!(alist, na, ptr, rem, rptr, r)
     return
 end
 
+# the same, one thread per (bag, row) over all bags (no compaction)
+function absorbrowallkernel!(alg, absorb, ptr, L, M, M2, moff, rs, maxL, nt)
+    i = (Int(blockIdx().x) - 1) * Int(blockDim().x) + Int(threadIdx().x)
+    t = J((i - 1) ÷ maxL) + one(J)
+    a = J(i - (t - one(J)) * maxL)
+
+    @inbounds if t <= nt && isone(absorb[t])
+        u = ptr[t]
+        o = moff[t] + (a - one(J)) * rs[t]
+
+        for w in one(J):rs[t]
+            if a <= L[ptr[u]]
+                M2[o + w] = jumpentry(alg, M, moff, rs, L, t, u, a, w)
+            else
+                M2[o + w] = zero(eltype(M2))
+            end
+        end
+    end
+
+    return
+end
+
+function absorbcopyallkernel!(absorb, M, M2, moff, rs, maxL, nt)
+    i = (Int(blockIdx().x) - 1) * Int(blockDim().x) + Int(threadIdx().x)
+    t = J((i - 1) ÷ maxL) + one(J)
+    a = J(i - (t - one(J)) * maxL)
+
+    @inbounds if t <= nt && isone(absorb[t])
+        o = moff[t] + (a - one(J)) * rs[t]
+
+        for w in one(J):rs[t]
+            M[o + w] = M2[o + w]
+        end
+    end
+
+    return
+end
+
+function absorbptrallkernel!(absorb, ptr, rem, rptr, r, nt)
+    t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+
+    @inbounds if t <= nt && isone(absorb[t])
+        u = ptr[t]
+        rem[u] = r
+        rptr[u] = ptr[u]
+        ptr[t] = ptr[u]
+    end
+
+    return
+end
+
 function unsplicemarkkernel!(rem, rptr, done, newd, r, nt)
     t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
 
@@ -773,7 +824,7 @@ end
 # the root (for counting: the number of homomorphisms).
 #
 function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=alg isa BoolPacked,
-        maxbytes=CUDA.total_memory() ÷ 4, jump=:mate, stats=nothing, kw...) where {I}
+        maxbytes=CUDA.total_memory() ÷ 4, jump=:mate, batch=8, stats=nothing, kw...) where {I}
     tst = time_ns()
     D = C.D
     X = D.inst
@@ -884,25 +935,29 @@ function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=
         else
             fill!(rem, zero(J))
             r = 0
+            #
+            # rounds in batches of `batch` with one host check per batch;
+            # a round with nothing to absorb is a no-op
+            #
+            ba = cld(nt * maxL, th)
 
             while true
-                r += 1
                 flag .= zero(J)
-                @cuda threads=th blocks=bl absorbkernel!(chain, rem, ptr, absorb, flag, J(r + 1000nphase), J(nt))
+
+                for _ in 1:batch
+                    r += 1
+                    @cuda threads=th blocks=bl absorbkernel!(chain, rem, ptr, absorb, flag, J(r + 1000nphase), J(nt))
+                    @cuda threads=th blocks=ba absorbrowallkernel!(alg, absorb, ptr, L, M, M2, moff, rs, J(maxL), J(nt))
+                    @cuda threads=th blocks=ba absorbcopyallkernel!(absorb, M, M2, moff, rs, J(maxL), J(nt))
+                    @cuda threads=th blocks=bl absorbptrallkernel!(absorb, ptr, rem, rptr, J(r), J(nt))
+                end
+
+                njump += batch
                 copyto!(status, flag)
                 iszero(status[1]) && break
-                alist = findall(isone, absorb)
-                na = length(alist)
-                njump += 1
-
-                if na > 0
-                    alist = J.(alist)
-                    @cuda threads=th blocks=cld(na * maxL, th) absorbrowkernel!(alg, alist, J(na), ptr, L, M, M2, moff, rs, J(maxL))
-                    @cuda threads=th blocks=cld(na * maxL, th) absorbcopykernel!(alist, J(na), M, M2, moff, rs, J(maxL))
-                    @cuda threads=th blocks=cld(na, th) absorbptrkernel!(alist, J(na), ptr, rem, rptr, J(r))
-                end
             end
 
+            r += 1
             nmate = r - 1
         end
 
