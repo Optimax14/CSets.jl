@@ -10,7 +10,7 @@ function bench(name, X, S, Y; reps=2, kw...)
     hg = CSetsGPU.color(D, Y; kw...)
     tg = minimum(@elapsed(CSetsGPU.color(D, Y; stats=st, kw...)) for _ in 1:reps)
     ok = isnothing(hc) == isnothing(hg) && (isnothing(hg) || ishom(X, Y, hg))
-    println(rpad(name, 32), " cpu=", round(tc, digits=4), " gpu=", round(tg, digits=4), " (fwd ", round(st[:fwd], digits=4), " [search kernels ", round(get(st, :kernel, 0.0), digits=4), "]",
+    println(rpad(name, 32), " cpu=", round(tc, digits=4), " gpu=", round(tg, digits=4), " (plan ", round(get(st, :plan, 0.0), digits=4), " setup ", round(get(st, :setup, 0.0), digits=4), " fwd ", round(st[:fwd], digits=4), " [search kernels ", round(get(st, :kernel, 0.0), digits=4), "]",
         " bwd ", round(get(st, :bwd, 0.0), digits=4), ") x", round(tc / tg, digits=2), " levels=", st[:levels], " rounds=", st[:rounds],
         " tabwords=", st[:ntab], " ok=", ok)
     flush(stdout)

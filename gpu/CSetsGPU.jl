@@ -14,7 +14,7 @@ module CSetsGPU
 using Base: oneto
 using Adapt
 using CUDA
-using CSets: CSets, Decomposition, Instance, Span, FVector, invmap, invvtx, normalize
+using CSets: CSets, Decomposition, Instance, Span, FVector, invmap, invvtx, normalize, two
 
 const J = Int32
 
@@ -64,13 +64,60 @@ function plan(D::Decomposition{I}) where {I}
     X = D.inst
     nu = X.dom.nu
     nt = D.tree.nu
-    pos = zeros(I, nu)
-    m = Vector{J}(undef, nt); s = Vector{J}(undef, nt); xpos = Vector{J}(undef, nt)
-    ord = J[]; bknd = J[]; bpos = J[]; barc = J[]
-    xchk = J[]; chka = J[]; chkp = J[]; chkd = J[]
-    xnar = J[]; narc = J[]; nari = J[]; naro = J[]
-    xsl = J[1]; slc = J[]; slo = J[]
-    maxo = 0
+    #
+    # sizes
+    #
+    npos = zero(I)
+    nchk = zero(I)
+    nnar = zero(I)
+    nsl = zero(I)
+
+    for t in oneto(nt)
+        rstrt = D.res.xadj[t]; rstop = D.res.xadj[t + one(I)] - one(I)
+        sstrt = D.sep.xadj[t]; sstop = D.sep.xadj[t + one(I)] - one(I)
+        npos += sstop - sstrt + rstop - rstrt + two(I)
+
+        for x in rstrt:rstop
+            nchk += X.dom.xadj[x + one(I)] - X.dom.xadj[x]
+        end
+
+        for p in sstrt:sstop
+            x = D.sep.adjncy[p]
+            nchk += X.dom.xadj[x + one(I)] - X.dom.xadj[x]
+        end
+
+        for j in D.tree.xadj[t]:D.tree.xadj[t + one(I)] - one(I)
+            c = D.tree.adjncy[j]
+            nnar += D.sep.xadj[c + one(I)] - D.sep.xadj[c]
+            nsl += one(I)
+        end
+    end
+
+    pos  = zeros(I, nu)
+    m    = Vector{J}(undef, nt)
+    s    = Vector{J}(undef, nt)
+    xpos = Vector{J}(undef, nt)
+    ord  = Vector{J}(undef, npos)
+    vtx  = Vector{J}(undef, npos)
+    bknd = Vector{J}(undef, npos)
+    bpos = Vector{J}(undef, npos)
+    barc = Vector{J}(undef, npos)
+    xchk = Vector{J}(undef, npos + nt)
+    chka = Vector{J}(undef, nchk)
+    chkp = Vector{J}(undef, nchk)
+    chkd = Vector{J}(undef, nchk)
+    xnar = Vector{J}(undef, npos + nt)
+    narc = Vector{J}(undef, nnar)
+    nari = Vector{J}(undef, nnar)
+    naro = Vector{J}(undef, nnar)
+    xsl  = Vector{J}(undef, nt + one(I))
+    slc  = Vector{J}(undef, nsl)
+    slo  = Vector{J}(undef, nsl)
+    maxo = zero(I)
+    o = zero(I)
+    q = one(I)
+    l = one(I)
+    r = one(I)
 
     for t in oneto(nt)
         rstrt = D.res.xadj[t]; rstop = D.res.xadj[t + one(I)] - one(I)
@@ -78,44 +125,50 @@ function plan(D::Decomposition{I}) where {I}
         cstrt = D.tree.xadj[t]; cstop = D.tree.xadj[t + one(I)] - one(I)
         st = sstop - sstrt + one(I)
         mt = st + rstop - rstrt + one(I)
-        m[t] = mt; s[t] = st; xpos[t] = length(ord)
-        o = length(ord)
+        m[t] = mt; s[t] = st; xpos[t] = o
+        pp = o + t - one(I)
+        k = o
 
         for p in sstop:-one(I):sstrt
-            push!(ord, D.sep.adjncy[p])
+            k += one(I)
+            ord[k] = D.sep.adjncy[p]
         end
 
         for x in rstop:-one(I):rstrt
-            push!(ord, x)
+            k += one(I)
+            ord[k] = x
         end
 
         for k in oneto(mt)
-            pos[ord[o + k]] = k
+            x = ord[o + k]
+            pos[x] = k
+            vtx[o + k] = X.vtx[x]
+            bknd[o + k] = one(J)
+            bpos[o + k] = zero(J)
+            barc[o + k] = zero(J)
+            xchk[pp + k + one(I)] = zero(J)
+            xnar[pp + k + one(I)] = zero(J)
         end
-
-        kn = ones(J, mt); bp = zeros(J, mt); ba = zeros(J, mt)
-        cnt = zeros(J, mt + 1)
-
+        #
+        # checks, as in bagsearch!
+        #
         for k in oneto(mt)
             w = ord[o + k]
 
             for p in X.dom.xadj[w]:X.dom.xadj[w + one(I)] - one(I)
-                cnt[max(k, pos[X.dom.adjncy[p]]) + 1] += 1
+                j = max(k, pos[X.dom.adjncy[p]])
+
+                if j < mt
+                    xchk[pp + j + two(I)] += one(J)
+                end
             end
         end
 
-        q0 = length(chka)
-        xc = Vector{J}(undef, mt + 1)
-        xc[1] = q0 + 1
+        xchk[pp + one(I)] = q
 
         for k in oneto(mt)
-            xc[k + 1] = xc[k] + cnt[k + 1]
+            xchk[pp + k + one(I)] = q += xchk[pp + k + one(I)]
         end
-
-        append!(chka, zeros(J, xc[mt + 1] - xc[1]))
-        append!(chkp, zeros(J, xc[mt + 1] - xc[1]))
-        append!(chkd, zeros(J, xc[mt + 1] - xc[1]))
-        fill = copy(xc)
 
         for k in oneto(mt)
             w = ord[o + k]
@@ -125,72 +178,76 @@ function plan(D::Decomposition{I}) where {I}
                 j = pos[X.dom.adjncy[p]]
 
                 if j <= k
-                    r = fill[k]; fill[k] += 1
-                    chka[r] = a; chkp[r] = j; chkd[r] = 1
+                    i = xchk[pp + k + one(I)]
+                    chka[i] = a; chkp[i] = j; chkd[i] = one(J)
+                    xchk[pp + k + one(I)] += one(J)
 
-                    if j < k && kn[k] == 1
-                        kn[k] = 2; bp[k] = j; ba[k] = a
+                    if j < k && isone(bknd[o + k])
+                        bknd[o + k] = two(J); bpos[o + k] = j; barc[o + k] = a
                     end
                 else
-                    r = fill[j]; fill[j] += 1
-                    chka[r] = a; chkp[r] = k; chkd[r] = 0
+                    i = xchk[pp + j + one(I)]
+                    chka[i] = a; chkp[i] = k; chkd[i] = zero(J)
+                    xchk[pp + j + one(I)] += one(J)
 
-                    if kn[j] != 3
-                        kn[j] = 3; bp[j] = k; ba[j] = a
+                    if bknd[o + j] != J(3)
+                        bknd[o + j] = J(3); bpos[o + j] = k; barc[o + j] = a
                     end
                 end
             end
         end
 
-        append!(xchk, xc); append!(bknd, kn); append!(bpos, bp); append!(barc, ba)
+        q = xchk[pp + mt + one(I)]
         #
-        # child narrowings
+        # child narrowings, as in bagsearch!
         #
-        cnt = zeros(J, mt + 1)
-
         for j in cstrt:cstop
             c = D.tree.adjncy[j]
 
             for p in D.sep.xadj[c]:D.sep.xadj[c + one(I)] - one(I)
-                cnt[pos[D.sep.adjncy[p]] + 1] += 1
+                k = pos[D.sep.adjncy[p]]
+
+                if k < mt
+                    xnar[pp + k + two(I)] += one(J)
+                end
             end
         end
 
-        xn = Vector{J}(undef, mt + 1)
-        xn[1] = length(narc) + 1
+        xnar[pp + one(I)] = l
 
         for k in oneto(mt)
-            xn[k + 1] = xn[k] + cnt[k + 1]
+            xnar[pp + k + one(I)] = l += xnar[pp + k + one(I)]
         end
 
-        nn = xn[mt + 1] - xn[1]
-        append!(narc, zeros(J, nn)); append!(nari, zeros(J, nn)); append!(naro, zeros(J, nn))
-        fill = copy(xn)
-        so = 1
+        xsl[t] = r
+        so = one(I)
 
         for j in cstrt:cstop
             c = D.tree.adjncy[j]
             pstrt = D.sep.xadj[c]; pstop = D.sep.xadj[c + one(I)] - one(I)
-            push!(slc, c); push!(slo, so)
-            i = 0
+            slc[r] = c; slo[r] = so
+            r += one(I)
+            i = zero(I)
 
-            for p in reverse(pstrt:pstop)
-                i += 1
+            for p in pstop:-one(I):pstrt
+                i += one(I)
                 k = pos[D.sep.adjncy[p]]
-                l = fill[k]; fill[k] += 1
-                narc[l] = c; nari[l] = i; naro[l] = so
+                e = xnar[pp + k + one(I)]
+                narc[e] = c; nari[e] = i; naro[e] = so
+                xnar[pp + k + one(I)] += one(J)
             end
 
-            so += pstop - pstrt + 2
+            so += pstop - pstrt + two(I)
         end
 
-        maxo = max(maxo, so - 1)
-        push!(xsl, length(slc) + 1)
-        append!(xnar, xn)
+        l = xnar[pp + mt + one(I)]
+        maxo = max(maxo, so - one(I))
+        o += mt
     end
 
-    P = Plan(m, s, xpos, ord, J[X.vtx[x] for x in ord], bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, xsl, slc, slo)
-    return P, Int(maximum(m; init=0)), maxo
+    xsl[nt + one(I)] = r
+    P = Plan(m, s, xpos, ord, vtx, bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, xsl, slc, slo)
+    return P, Int(maximum(m; init=0)), Int(maxo)
 end
 
 function target(Y::Instance{I}) where {I}
@@ -659,7 +716,13 @@ function flatten(levels)
         push!(ptr, ptr[end] + length(l))
     end
 
-    return reduce(vcat, levels; init=J[]), ptr
+    flat = Vector{J}(undef, ptr[end] - 1)
+
+    for (l, lev) in enumerate(levels)
+        copyto!(flat, ptr[l], lev, 1, length(lev))
+    end
+
+    return flat, ptr
 end
 
 #
@@ -670,12 +733,14 @@ end
 #   - minwork:  ... unless the level is smaller than this
 #
 function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, minwork=256, threads=128, stats=nothing) where {I}
+    tst = time_ns()
     Y, yord = normalize(Y)
     X = D.inst
     nu = X.dom.nu
     nt = D.tree.nu
     ny = Y.dom.nu
     Pc, maxm, maxo = plan(D)
+    tpl = time_ns() - tst
     P = adapt(CuArray, Pc)
     T = target(Y)
     W = max(1, Int(maximum(Pc.s; init=0)))
@@ -871,7 +936,7 @@ function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, 
     end
 
     if !isnothing(stats)
-        stats[:fwd] = (t1 - t0) / 1e9; stats[:bwd] = (t2 - t1) / 1e9; stats[:ntab] = ntab; stats[:nkern] = nkern
+        stats[:plan] = tpl / 1e9; stats[:setup] = (t0 - tst) / 1e9; stats[:fwd] = (t1 - t0) / 1e9; stats[:bwd] = (t2 - t1) / 1e9; stats[:ntab] = ntab; stats[:nkern] = nkern
         stats[:levels] = length(up); stats[:rounds] = nround; stats[:kernel] = tker
         stats[:ncol] = Array(ncol); stats[:tab] = Array(tab)[1:ntab]; stats[:xtab] = Array(xtab)
     end
