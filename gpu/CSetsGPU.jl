@@ -732,7 +732,7 @@ end
 #   - nitems:   split the bags of a level until it has this many items
 #   - minwork:  ... unless the level is smaller than this
 #
-function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, minwork=256, threads=128, stats=nothing) where {I}
+function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, minwork=256, threads=128, stats=nothing, keep=false) where {I}
     tst = time_ns()
     Y, yord = normalize(Y)
     X = D.inst
@@ -917,6 +917,10 @@ function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, 
     CUDA.synchronize()
     t1 = time_ns()
 
+    if keep
+        return (; tab, xtab, ncol, Pc, yord, Y)
+    end
+
     for l in eachindex(down)
         nb = dnptr[l + 1] - dnptr[l]
         copyto!(ibag, 1, dnd, dnptr[l], nb)
@@ -943,5 +947,7 @@ function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, 
 
     return out
 end
+
+include("contractgpu.jl")
 
 end # module
