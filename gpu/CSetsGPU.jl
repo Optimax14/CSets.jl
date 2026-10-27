@@ -239,7 +239,7 @@ end
 #      extension to h
 #
 function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, next,
-        rkey, rdep, rval, cap, cnt, scr, maxm, maxo, mode)
+        rkey, rdep, rval, cap, cnt, scr, maxm, maxo, mode, icnt)
     tid = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
     nthr = gridDim().x * blockDim().x
     one_ = one(J)
@@ -267,6 +267,7 @@ function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, nex
         if mode == J(1)
             if d >= s
                 emit!(rkey, rdep, rval, cap, cnt, ncol, ipre, W, i, zero(J), t, d, d, scr, nthr, tid, HP, true)
+                icnt[i] = one_
                 continue
             end
 
@@ -298,6 +299,7 @@ function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, nex
         if mstop <= d
             if mode != J(2)
                 emit!(rkey, rdep, rval, cap, cnt, ncol, ipre, W, i, zero(J), t, E, E, scr, nthr, tid, HP, false)
+                icnt[i] = one_
             end
 
             continue
@@ -462,6 +464,10 @@ function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, nex
                 k -= one_
             end
         end
+
+        if mode != J(2)
+            icnt[i] = seq
+        end
     end
 
     return
@@ -538,13 +544,27 @@ end
     return
 end
 
-function gatherkernel!(perm, rkey, rdep, rval, W, R, ibag, P, tab, xtab, first, nbag, ndep, npre, mode)
-    r = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+#
+# Record rec, the seq-th column of item i, has rank
+#
+#    iscan[i - 1] + seq + 1
+#
+# in the round's output: items in order, each item's columns in order.
+#
+function gatherkernel!(iscan, rkey, rdep, rval, W, R, ibag, P, tab, xtab, first, nbag, ndep, npre, mode)
+    rec = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
     one_ = one(J)
 
-    @inbounds if r <= R
-        rec = perm[r]
-        i = J(rkey[rec] >> 32)
+    @inbounds if rec <= R
+        key = rkey[rec]
+        i = J(key >> 32)
+        seq = J(key & 0xffffffff)
+        r = seq + one_
+
+        if i > one_
+            r += iscan[i - one_]
+        end
+
         t = ibag[i]
 
         if mode == zero(J)
@@ -573,11 +593,49 @@ function gatherkernel!(perm, rkey, rdep, rval, W, R, ibag, P, tab, xtab, first, 
     return
 end
 
-function zerokernel!(ncol, bags, n)
+#
+# Reset the counters of a round: ncol of its bags, the record count,
+# and the item cursor.
+#
+function zerokernel!(ncol, bags, n, cnt, next)
     r = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
 
     @inbounds if r <= n
         ncol[bags[r]] = zero(J)
+    end
+
+    @inbounds if r == one(J)
+        cnt[one(J)] = zero(J)
+        next[one(J)] = zero(J)
+    end
+
+    return
+end
+
+#
+# Copy what the host needs after a round: the column count of each bag
+# and the number of records.
+#
+function reportkernel!(out, ncol, bags, n, cnt)
+    r = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+
+    @inbounds if r <= n
+        out[r] = ncol[bags[r]]
+    end
+
+    @inbounds if r == one(J)
+        out[n + one(J)] = cnt[one(J)]
+    end
+
+    return
+end
+
+function placekernel!(xtab, first, bags, n, buf)
+    r = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+
+    @inbounds if r <= n
+        xtab[bags[r]] = buf[r]
+        first[bags[r]] = buf[n + r]
     end
 
     return
@@ -594,15 +652,29 @@ function Stage(cap, W)
     return Stage(cap, CuVector{UInt64}(undef, cap), CuVector{J}(undef, cap), CuVector{J}(undef, cap * W))
 end
 
+function flatten(levels)
+    ptr = [1]
+
+    for l in levels
+        push!(ptr, ptr[end] + length(l))
+    end
+
+    return reduce(vcat, levels; init=J[]), ptr
+end
+
 #
 # Find a homomorphism D.inst → Y, or nothing. Same answer as
-# CSets.color(D, Y).
+# CSets.color(D, Y), with the same tables.
 #
-function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, threads=128, stats=nothing) where {I}
+#   - nitems:   split the bags of a level until it has this many items
+#   - minwork:  ... unless the level is smaller than this
+#
+function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, minwork=256, threads=128, stats=nothing) where {I}
     Y, yord = normalize(Y)
     X = D.inst
     nu = X.dom.nu
     nt = D.tree.nu
+    ny = Y.dom.nu
     Pc, maxm, maxo = plan(D)
     P = adapt(CuArray, Pc)
     T = target(Y)
@@ -629,6 +701,13 @@ function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, 
         push!(down[dep[t] + 1], t)
     end
 
+    upflat, upptr = flatten(up)
+    dnflat, dnptr = flatten(down)
+    upd = CuVector{J}(upflat)
+    dnd = CuVector{J}(dnflat)
+    dns = CuVector{J}(J[Pc.s[t] for t in dnflat])
+    mlev = max(maximum(length, up), maximum(length, down))
+
     dev = device()
     nsm = attribute(dev, CUDA.DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT)
     blocks = nsm * 8
@@ -641,53 +720,89 @@ function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, 
     h = CUDA.zeros(J, nu)
     cnt = CUDA.zeros(J, 1)
     next = CUDA.zeros(J, 1)
+    rep = CuVector{J}(undef, 2mlev + 1)
+    reph = Vector{J}(undef, 2mlev + 1)
     st = Stage(1 << 16, W)
-    icap = max(1 << 16, maximum(length, up), maximum(length, down))
+    icap = max(1 << 16, mlev)
     ibag = CuVector{J}(undef, icap); idep = CuVector{J}(undef, icap); ipre = CuVector{J}(undef, icap * W)
     nbag = CuVector{J}(undef, icap); ndep = CuVector{J}(undef, icap); npre = CuVector{J}(undef, icap * W)
+    icnt = CuVector{J}(undef, icap); iscan = CuVector{J}(undef, icap)
     ntab = 0
     sh = Vector(Pc.s)
+    ncolh = zeros(Int, nt)
+    ntyp = [count(==(u), Y.vtx) for u in 1:Y.cod.nu]
     nkern = 0
+    nround = 0
+    ev1 = CuEvent(); ev2 = CuEvent()
+    tker = 0.0
+    t0 = time_ns()
 
-    function launch(nitem, bagsd, nb, mode)
-        while true
-            CUDA.@sync begin
-                @cuda threads=256 blocks=cld(nb, 256) zerokernel!(ncol, bagsd, J(nb))
-                cnt .= zero(J); next .= zero(J)
-                @cuda threads=threads blocks=blocks searchkernel!(P, T, tab, xtab, ncol, h, ibag, idep, ipre, J(W), J(nitem), next,
-                    st.rkey, st.rdep, st.rval, J(st.cap), cnt, scr, J(maxm), J(maxo), J(mode))
-            end
-            nkern += 1
-            R = Int(Array(cnt)[1])
-
-            if R <= st.cap
-                return R
-            end
-
-            st = Stage(max(R, 2st.cap), W)
-        end
-    end
-
-    for lev in up
+    for l in eachindex(up)
+        lev = up[l]
         nb = length(lev)
-        bagsd = CuVector{J}(lev)
-        copyto!(ibag, 1, bagsd, 1, nb)
-        idep[1:nb] .= zero(J)
+        bagsd = view(upd, upptr[l]:upptr[l + 1] - 1)
+        copyto!(ibag, 1, upd, upptr[l], nb)
+        fill!(view(idep, 1:nb), zero(J))
         nitem = nb
         round = 0
+        #
+        # estimated work: the sizes of the child tables, or for a leaf the
+        # number of assignments of its separator
+        #
+        work = 0
+
+        for t in lev
+            cstrt = D.tree.xadj[t]
+            cstop = D.tree.xadj[t + one(I)] - one(I)
+
+            if cstrt <= cstop
+                for j in cstrt:cstop
+                    work += ncolh[D.tree.adjncy[j]]
+                end
+            else
+                w = 1
+
+                for k in 1:sh[t]
+                    w = min(w * ntyp[Pc.vtx[Pc.xpos[t] + k]], minwork)
+                end
+
+                work += w
+            end
+        end
 
         while true
-            expand = nitem < nitems && round < maxround && any(t -> sh[t] > round, lev)
+            expand = nitem < nitems && round < maxround && work >= minwork && any(t -> sh[t] > round, lev)
             mode = expand ? 1 : 0
-            R = launch(nitem, bagsd, nb, mode)
-            counts = Array(ncol[bagsd])
+            R = 0
 
-            if any(iszero, counts)
-                return
+            while true
+                @cuda threads=256 blocks=cld(nb, 256) zerokernel!(ncol, bagsd, J(nb), cnt, next)
+                isnothing(stats) || CUDA.record(ev1)
+                @cuda threads=threads blocks=min(blocks, cld(nitem, threads)) searchkernel!(P, T, tab, xtab, ncol, h, ibag, idep, ipre, J(W), J(nitem), next,
+                    st.rkey, st.rdep, st.rval, J(st.cap), cnt, scr, J(maxm), J(maxo), J(mode), icnt)
+                isnothing(stats) || CUDA.record(ev2)
+                @cuda threads=256 blocks=cld(nb + 1, 256) reportkernel!(rep, ncol, bagsd, J(nb), cnt)
+                copyto!(reph, 1, rep, 1, nb + 1)
+                nkern += 1
+                isnothing(stats) || (tker += CUDA.elapsed(ev1, ev2))
+                R = Int(reph[nb + 1])
+                R <= st.cap && break
+                st = Stage(max(R, 2st.cap), W)
             end
 
-            perm = R > 0 ? sortperm(st.rkey[1:R]) : CuVector{Int}(undef, 0)
-            perm = J.(perm)
+            nround += 1
+
+            for k in 1:nb
+                if iszero(reph[k])
+                    if !isnothing(stats)
+                        stats[:fwd] = (time_ns() - t0) / 1e9; stats[:ntab] = ntab; stats[:nkern] = nkern; stats[:levels] = length(up); stats[:rounds] = nround; stats[:kernel] = tker
+                    end
+
+                    return
+                end
+            end
+
+            accumulate!(+, view(iscan, 1:nitem), view(icnt, 1:nitem))
 
             if expand
                 if R > icap
@@ -695,20 +810,29 @@ function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, 
                     nbag = CuVector{J}(undef, icap); ndep = CuVector{J}(undef, icap); npre = CuVector{J}(undef, icap * W)
                 end
 
-                R > 0 && @cuda threads=256 blocks=cld(R, 256) gatherkernel!(perm, st.rkey, st.rdep, st.rval, J(W), J(R), ibag, P, tab, xtab, first, nbag, ndep, npre, J(1))
+                @cuda threads=256 blocks=cld(R, 256) gatherkernel!(iscan, st.rkey, st.rdep, st.rval, J(W), J(R), ibag, P, tab, xtab, first, nbag, ndep, npre, J(1))
                 ibag, nbag = nbag, ibag; idep, ndep = ndep, idep; ipre, npre = npre, ipre
-                length(nbag) < icap && (nbag = CuVector{J}(undef, icap); ndep = CuVector{J}(undef, icap); npre = CuVector{J}(undef, icap * W))
+
+                if length(nbag) < icap
+                    nbag = CuVector{J}(undef, icap); ndep = CuVector{J}(undef, icap); npre = CuVector{J}(undef, icap * W)
+                end
+
+                if length(icnt) < icap
+                    icnt = CuVector{J}(undef, icap); iscan = CuVector{J}(undef, icap)
+                end
+
                 nitem = R
                 round += 1
             else
-                xt = similar(counts); fr = similar(counts)
                 acc = 0
 
-                for (l, t) in enumerate(lev)
-                    xt[l] = ntab + 1
-                    fr[l] = acc
-                    ntab += counts[l] * sh[t]
-                    acc += counts[l]
+                for k in 1:nb
+                    t = lev[k]
+                    ncolh[t] = reph[k]
+                    reph[k] = ntab + 1
+                    reph[nb + k] = acc
+                    ntab += ncolh[t] * sh[t]
+                    acc += ncolh[t]
                 end
 
                 if ntab > length(tab)
@@ -717,25 +841,29 @@ function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, 
                     tab = tab2
                 end
 
-                xtab[bagsd] = CuVector{J}(xt)
-                first[bagsd] = CuVector{J}(fr)
-                R > 0 && @cuda threads=256 blocks=cld(R, 256) gatherkernel!(perm, st.rkey, st.rdep, st.rval, J(W), J(R), ibag, P, tab, xtab, first, nbag, ndep, npre, J(0))
+                copyto!(rep, 1, reph, 1, 2nb)
+                @cuda threads=256 blocks=cld(nb, 256) placekernel!(xtab, first, bagsd, J(nb), rep)
+                R > 0 && @cuda threads=256 blocks=cld(R, 256) gatherkernel!(iscan, st.rkey, st.rdep, st.rval, J(W), J(R), ibag, P, tab, xtab, first, nbag, ndep, npre, J(0))
                 break
             end
         end
     end
 
-    for lev in down
-        nb = length(lev)
-        copyto!(ibag, 1, CuVector{J}(lev), 1, nb)
-        copyto!(idep, 1, CuVector{J}(J[sh[t] for t in lev]), 1, nb)
-        next .= zero(J)
+    CUDA.synchronize()
+    t1 = time_ns()
+
+    for l in eachindex(down)
+        nb = dnptr[l + 1] - dnptr[l]
+        copyto!(ibag, 1, dnd, dnptr[l], nb)
+        copyto!(idep, 1, dns, dnptr[l], nb)
+        @cuda threads=256 blocks=cld(nb, 256) zerokernel!(rep, view(dnd, dnptr[l]:dnptr[l + 1] - 1), J(0), cnt, next)
         @cuda threads=threads blocks=min(blocks, cld(nb, threads)) searchkernel!(P, T, tab, xtab, ncol, h, ibag, idep, ipre, J(W), J(nb), next,
-            st.rkey, st.rdep, st.rval, J(st.cap), cnt, scr, J(maxm), J(maxo), J(2))
+            st.rkey, st.rdep, st.rval, J(st.cap), cnt, scr, J(maxm), J(maxo), J(2), icnt)
         nkern += 1
     end
 
     hh = Array(h)
+    t2 = time_ns()
     out = Vector{I}(undef, nu)
 
     for r in oneto(nu)
@@ -743,7 +871,9 @@ function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, 
     end
 
     if !isnothing(stats)
-        stats[:ntab] = ntab; stats[:nkern] = nkern; stats[:levels] = length(up); stats[:ncol] = Array(ncol); stats[:tab] = Array(tab)[1:ntab]; stats[:xtab] = Array(xtab)
+        stats[:fwd] = (t1 - t0) / 1e9; stats[:bwd] = (t2 - t1) / 1e9; stats[:ntab] = ntab; stats[:nkern] = nkern
+        stats[:levels] = length(up); stats[:rounds] = nround; stats[:kernel] = tker
+        stats[:ncol] = Array(ncol); stats[:tab] = Array(tab)[1:ntab]; stats[:xtab] = Array(xtab)
     end
 
     return out
