@@ -59,48 +59,47 @@ function lockernel!(tab, xtab, F, m, s, xF, proj, locfirst, L, flag, nt)
     return
 end
 
-function cprojkernel!(tab, xtab, F, m, s, L, locfirst, xch, chl, cpoff, cpos, xC, cproj, nt)
-    t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+function cprojkernel!(tab, xtab, F, m, s, L, locfirst, xch, chl, cpoff, cpos, xC, cproj, xbag, xF, nx)
+    g = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
 
-    @inbounds if t <= nt
+    @inbounds if g <= nx
+        t = xbag[g]
+        x = g - xF[t]
         nch = xch[t + one(J)] - xch[t]
 
         for j in one(J):nch
             l = xch[t] + j - one(J)
             c = chl[l]
+            lo = one(J)
+            hi = L[c]
+            r = zero(J)
 
-            for x in one(J):F[t]
-                lo = one(J)
-                hi = L[c]
-                r = zero(J)
+            while lo <= hi
+                mid = (lo + hi) >>> one(J)
+                y = locfirst[(c - one(J)) * J(B) + mid]
+                cmp = zero(J)
 
-                while lo <= hi
-                    mid = (lo + hi) >>> one(J)
-                    y = locfirst[(c - one(J)) * J(B) + mid]
-                    cmp = zero(J)
+                for i in one(J):s[c]
+                    a = full(tab, xtab, m, t, x, cpos[cpoff[l] + i - one(J)])
+                    b = full(tab, xtab, m, c, y, i)
 
-                    for i in one(J):s[c]
-                        a = full(tab, xtab, m, t, x, cpos[cpoff[l] + i - one(J)])
-                        b = full(tab, xtab, m, c, y, i)
-
-                        if a != b
-                            cmp = b < a ? -one(J) : one(J)
-                            break
-                        end
-                    end
-
-                    if iszero(cmp)
-                        r = mid
+                    if a != b
+                        cmp = b < a ? -one(J) : one(J)
                         break
-                    elseif cmp < zero(J)
-                        lo = mid + one(J)
-                    else
-                        hi = mid - one(J)
                     end
                 end
 
-                cproj[xC[t] + (x - one(J)) * nch + j] = r
+                if iszero(cmp)
+                    r = mid
+                    break
+                elseif cmp < zero(J)
+                    lo = mid + one(J)
+                else
+                    hi = mid - one(J)
+                end
             end
+
+            cproj[xC[t] + (x - one(J)) * nch + j] = r
         end
     end
 
@@ -427,7 +426,13 @@ function contract(D::Decomposition{I}, Y::Instance{I}; stats=nothing, kw...) whe
     accF = 0
     accC = 0
 
+    xbag = Vector{J}(undef, sum(F))
+
     for t in oneto(nt)
+        for x in 1:F[t]
+            xbag[accF + x] = t
+        end
+
         xF[t] = accF
         xC[t] = accC
         accF += F[t]
@@ -470,7 +475,7 @@ function contract(D::Decomposition{I}, Y::Instance{I}; stats=nothing, kw...) whe
         return :wide
     end
 
-    @cuda threads=th blocks=bl cprojkernel!(tab, xtab, Fd, md, sd, L, locfirst, xchd, chld, cpoffd, cposd, xCd, cproj, J(nt))
+    @cuda threads=th blocks=cld(accF, th) cprojkernel!(tab, xtab, Fd, md, sd, L, locfirst, xchd, chld, cpoffd, cposd, xCd, cproj, d(xbag), xFd, J(accF))
     #
     # contraction
     #

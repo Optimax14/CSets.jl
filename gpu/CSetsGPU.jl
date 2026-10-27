@@ -698,6 +698,12 @@ function placekernel!(xtab, first, bags, n, buf)
     return
 end
 
+#
+# the record capacity that sufficed so far: a round that overflows is
+# run again with more
+#
+const STAGE = Ref(1 << 16)
+
 mutable struct Stage
     cap::Int
     rkey::CuVector{UInt64}
@@ -787,7 +793,7 @@ function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, 
     next = CUDA.zeros(J, 1)
     rep = CuVector{J}(undef, 2mlev + 1)
     reph = Vector{J}(undef, 2mlev + 1)
-    st = Stage(1 << 16, W)
+    st = Stage(STAGE[], W)
     icap = max(1 << 16, mlev)
     ibag = CuVector{J}(undef, icap); idep = CuVector{J}(undef, icap); ipre = CuVector{J}(undef, icap * W)
     nbag = CuVector{J}(undef, icap); ndep = CuVector{J}(undef, icap); npre = CuVector{J}(undef, icap * W)
@@ -853,6 +859,7 @@ function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, 
                 R = Int(reph[nb + 1])
                 R <= st.cap && break
                 st = Stage(max(R, 2st.cap), W)
+                STAGE[] = max(STAGE[], st.cap)
             end
 
             nround += 1
