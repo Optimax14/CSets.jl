@@ -185,3 +185,90 @@ Laptop, 30k-bit buggy miter, 300k bags, device total about 150 ms:
 - Big targets and wide bags are where the GPU shines: 15–71× on the search.
 - Deep decompositions (the miters) need the categorical trick: separator tables are relations, chains of bags compose as Boolean matrices (composition of spans), and pointer jumping turns 20k–230k sequential levels into about 50 rounds. That gives 6–20× on the miter search. It is only cheap when the separator domains are small (≤ 64 here), because composition is cubic.
 - On the miters the bottleneck is now `decomposition`, mostly the MF ordering. `alg=MMD()` is 3–5× faster with the same search time.
+
+## Round 2 (multi-word contraction, semirings, random mate, budgets, caching)
+
+HPG was not reachable for this round (the SSH control master died: run `! ssh -fN hpg`). The numbers below are from the laptop RTX 5060 while other jobs were running on it, so they are noisy. The HPG suite is ready but has not been run: `gpu/hpg_gpu2.sbatch` (suites `big wide e2e multi`, script `gpu/hpg_bench2.jl`) and `gpu/hpg_decomp.sbatch` (`prof_nd.jl`, `prof_decomp.jl`). Raw laptop TSVs are in `gpu/results/laptop_round2/`.
+
+### 1. Separator domains of any size, and an operator-parameterized algebra
+
+`contractgpu.jl` is rewritten around an algebra parameter:
+
+- **`BoolPacked()`** (the default): Boolean messages and matrices, 64 entries per `UInt64` word. Bag t has `cld(L_t, 64)` words per row.
+  - The product M_u ⋅ M_t uses one thread per output word: it ORs the rows of M_t selected by the set bits of row a of M_u, walking them with `trailing_zeros`.
+  - The vector–matrix product works the same way.
+- **`Semiring(zero, one, add, mul, atomic)`**: dense entries for any commutative semiring.
+  - Column values are ⊗ over the done children's messages, and the projections are ⊕-accumulated with `atomic`: `CUDA.atomic_or!` for Booleans, `atomic_add!` for counting, `atomic_min!` for min-plus.
+  - `contract(C, Y; alg=CSetsGPU.counting(Float64), witness=false)` returns the number of homomorphisms. It matches brute force on 120/120 random instances (`gpu/test_semiring.jl`).
+  - `CSetsGPU.boolean()` is the dense Boolean semiring with a witness. It agrees with the CPU code.
+  - The semiring branch (`itay/semiring`) can use the same rake / chain / jump / fin / witness driver and swap in its own `Semiring`.
+- Matrices use CSR-like offsets: bag t stores `maxL` rows of width `width(alg, L_t)`. There is no cap at 64 any more; the only limit is a memory check, `maxbytes` (default: a quarter of the device memory), and `:wide` now means "does not fit".
+
+Validation: `test_cgpu.jl` passes 310/310 with 0 `:wide` cases (11 were `:wide` before).
+
+### 3. Linear-work contraction (random mate) and caching
+
+- **Random mate (`jump=:mate`, the default):** a chain bag with heads absorbs its chain child with tails (M_t = M_u ⋅ M_t). The absorbed bag is frozen with its matrix and pointer.
+  - After the chain's bottom is done, frozen bags are resolved in reverse round order, as v_u = v_rptr ⋅ M_u.
+  - Total work is O(n) matrix products instead of Wyllie's O(n log n), at the cost of about 2× more rounds. Each round is one small kernel, one `findall` over the absorbers, and three kernels over the absorbers only.
+  - `jump=:wyllie` keeps the old scheme.
+- **Caching:** `CSetsGPU.prepare(D)` (level-synchronous) and `CSetsGPU.prepare_contract(D)` (contraction) hold everything that depends only on the decomposition: the plan of every bag, the levels, the tree arrays and the local-table plan of D'. The target-dependent work runs from them for each Y.
+
+Contraction, laptop, CPU time vs GPU time (s):
+
+| workload | CPU | GPU, mate | GPU, Wyllie | jump time: mate / Wyllie | max L |
+|---|---:|---:|---:|---:|---:|
+| grid 4×100000 → K3 | 3.07 | **0.227 (13.5×)** | 1.00 | 0.030 / 0.59 | 81 |
+| grid 5×1000 → K4 | 0.45 | **0.11 (4.1×)** | 1.36 | 0.06 / 1.31 | 1024 |
+| grid 6×1000 → K3 | 0.18 | 0.54 (0.33×) | 0.70 | 0.34 / 0.64 | 1458 |
+| grid 5×2000 → K3 | 0.18 | 0.36 | 0.14 (1.3×) | 0.28 / 0.066 | 243 |
+| grid 6×4000 → K3, grid 7×1000 → K3 | 0.77, 0.54 | – | – | – | `:wide` (> 25% of 8 GB) |
+
+- Random mate fixes the deep, small-L cases: the jump rounds are 20× cheaper on grid 4×100000.
+- For L in the thousands, the cubic composition cost dominates and the CPU wins, as predicted in section 2.
+- The grid 5×2000 regression comes from per-round overhead: 75 rounds, each with a `findall` sync. A fixed number of mate rounds without a sync would fix it.
+
+### 2. Decomposition
+
+Breakdown of `decomposition` on the laptop, min of 5 runs, adder vs buggy miter (s):
+
+| part | 10k, MF | 10k, MMD | 30k, MF | 30k, MMD |
+|---|---:|---:|---:|---:|
+| total | 0.228 | 0.055 | 0.441 | 0.259 |
+| ordering only | 0.084 | 0.010 | 0.298 | 0.055 |
+| `cliquetree` with the ordering given | 0.017 | 0.011 | 0.057 | 0.041 |
+| CSets plumbing | | ≈ 0.025 | | ≈ 0.07 |
+
+The CSets plumbing is sccs, permutes, gaifman, invspan, invmap and separators. Each of these is a few ms (`prof_rest.jl`).
+
+- **MMD is the big lever:** the ordering is 8× cheaper than MF and the search time is the same.
+- With MMD, what remains is mostly CliqueTrees' clique-tree construction plus about 0.07 s (at 30k) of O(n) CSR passes. A GPU ordering (GND) would save at most the 0.01–0.055 s that MMD's ordering costs.
+- **ND quality on miters (CPU `ND(MMD(), METISND())`, 3k bits):** max bag 10 (same as MF/AMD) and depth 3,390 instead of 12k, and the CPU search time drops 6×. So the GPU ND orderings (tn-work GND) would give bags just as good. They matter more for level-synchronous search than for contraction, which does not care about depth.
+- I did not port the plumbing (gaifman / separators) to the GPU: it is ≤ 0.07 s at 30k, smaller than the remaining CliqueTrees symbolic work.
+
+End to end (decomposition + search), CPU vs GPU contraction with the same ordering on both, laptop:
+
+| miter | ordering | decomp | CPU search | GPU contract | search speedup | end to end, prep uncached | end to end, prep cached |
+|---|---|---:|---:|---:|---:|---:|---:|
+| bug 10k | MF | 0.19 | 0.31 | 0.041 | 7.5× | 1.6× | 2.2× |
+| bug 10k | MMD | 0.054 | 0.34 | 0.036 | 9.3× | 3.5× | **4.3×** |
+| eq 10k | MMD | 0.066 | 0.31 | 0.024 | 12.8× | 3.3× | 4.2× |
+| bug 30k | MMD | 0.22 | 0.78 | 0.111 | 7.0× | 2.3× | 3.0× |
+| eq 30k | MMD | 0.25 | 0.77 | 0.069 | 11.2× | 2.5× | 3.2× |
+
+### Same X, many targets
+
+| X | targets | CPU | level-sync, cached prep | level-sync, uncached | speedup |
+|---|---|---:|---:|---:|---:|
+| partial 3-tree, n=20000 | 24 random targets on 4–9 vertices (11 satisfiable) | 6.84 s | **0.79 s** | 1.09 s | 8.6× |
+
+- Contraction on the same 24 targets took 1.1–1.5 s; this run was noisy.
+- True one-launch batching (a target index on every work item and table) is not implemented: it would need a target dimension in `Plan`/`Target` and in the tables. Caching already removes the per-decomposition setup.
+
+### 4. Splitting giant nodes (step budget)
+
+- In a final round (mode 0), `color(...; budget=1<<14, maxsplit=6)` stops any item whose DFS takes more than `budget` steps while its separator is not yet fully fixed, and sets `abort[i]`.
+- The host then splits only the aborted items, by one more separator position, and reruns the round. Completed items pass through unchanged, and the budget is multiplied by 4 on each resplit.
+- Order is preserved because aborted items are replaced in place by their children, so the tables are still bit-identical. `test.jl` passes 174/174 with budgets of 4, 64 and 16k.
+- Not split yet: items whose whole separator is fixed but whose residual existence search is huge. That needs first-to-succeed sub-items with a per-parent flag.
+- The tail-bound unsatisfiable case (pk5-n1000-G60, 1.6× on HPG) is in the HPG `big` suite with `budget=0` and `budget=16k`, still to be run.

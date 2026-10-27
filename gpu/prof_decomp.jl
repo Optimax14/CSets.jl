@@ -13,7 +13,7 @@ function decompparts(X, S; alg=MF())
     return T, G
 end
 B = instance(boolean())
-for n in (10000, 30000)
+for n in (10000, 30000, 100000)
     c, = miter(n, adder!, (c, a, b) -> buggy!(c, a, b, n ÷ 2)); X = instance(c); S = support(X)
     decompparts(X, S)
     T, G = decompparts(X, S)
