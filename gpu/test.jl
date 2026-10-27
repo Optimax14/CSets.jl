@@ -11,7 +11,7 @@ end
 function check(name, X, S, Y; kw...)
     D = decomposition(X, S; alg=MF())
     hc = color(D, Y)
-    st = Dict{Symbol,Any}()
+    st = Dict{Symbol,Any}(:wanttab => true)
     hg = CSetsGPU.color(D, Y; stats=st, kw...)
     ok = isnothing(hc) == isnothing(hg) && (isnothing(hg) || ishom(X, Y, hg))
     if !isnothing(hc)

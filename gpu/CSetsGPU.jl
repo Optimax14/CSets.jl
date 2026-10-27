@@ -736,9 +736,10 @@ end
 # CSets.color(D, Y), with the same tables.
 #
 #   - nitems:   split the bags of a level until it has this many items
+#               (default: 8 per GPU thread)
 #   - minwork:  ... unless the level is smaller than this
 #
-function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, minwork=256, threads=128, stats=nothing, keep=false) where {I}
+function color(D::Decomposition{I}, Y::Instance{I}; nitems=0, maxround=8, minwork=256, threads=128, stats=nothing, keep=false) where {I}
     tst = time_ns()
     Y, yord = normalize(Y)
     X = D.inst
@@ -783,6 +784,7 @@ function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, 
     nsm = attribute(dev, CUDA.DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT)
     blocks = nsm * 8
     nthr = blocks * threads
+    nitems = iszero(nitems) ? 8nthr : nitems
     scr = CuVector{J}(undef, (5maxm + 2maxo) * nthr)
     ncol = CUDA.zeros(J, nt)
     xtab = CUDA.zeros(J, nt)
@@ -953,7 +955,9 @@ function color(D::Decomposition{I}, Y::Instance{I}; nitems=1 << 15, maxround=6, 
     if !isnothing(stats)
         stats[:plan] = tpl / 1e9; stats[:setup] = (t0 - tst) / 1e9; stats[:fwd] = (t1 - t0) / 1e9; stats[:bwd] = (t2 - t1) / 1e9; stats[:ntab] = ntab; stats[:nkern] = nkern
         stats[:levels] = length(up); stats[:rounds] = nround; stats[:kernel] = tker
-        stats[:ncol] = Array(ncol); stats[:tab] = Array(tab)[1:ntab]; stats[:xtab] = Array(xtab)
+        if haskey(stats, :wanttab)
+            stats[:ncol] = Array(ncol); stats[:tab] = Array(tab)[1:ntab]; stats[:xtab] = Array(xtab)
+        end
     end
 
     return out
