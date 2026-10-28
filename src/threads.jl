@@ -18,10 +18,15 @@ struct Threaded
     # counts of the children of its nodes is at least this
     #
     minwork::Int
+    #
+    # a Boolean search on a tree with at least this many levels uses
+    # tree contraction (treecontraction.jl)
+    #
+    deep::Int
 end
 
-function Threaded(ntasks::Integer=Threads.nthreads(); minwork::Integer=256)
-    return Threaded(ntasks, minwork)
+function Threaded(ntasks::Integer=Threads.nthreads(); minwork::Integer=256, deep::Integer=256)
+    return Threaded(ntasks, minwork, deep)
 end
 
 function score(P::Threaded, R::AbstractSemiring, W, X::Instance{I}, S::Span{I}, Y::Instance{I}; kw...) where {I}
@@ -88,6 +93,17 @@ function tmap(f, n::Integer, idx)
     end
 
     return [x for x in out]
+end
+
+function treeheight(D::Decomposition{I}) where {I}
+    nt = D.tree.nu
+    hgt = zeros(I, nt)
+
+    for t in oneto(nt), j in D.tree.xadj[t]:D.tree.xadj[t + one(I)] - one(I)
+        hgt[t] = max(hgt[t], hgt[D.tree.adjncy[j]] + one(I))
+    end
+
+    return iszero(nt) ? zero(I) : hgt[nt] + one(I)
 end
 
 #
@@ -358,6 +374,11 @@ function solve!(
 end
 
 function psolve(P::Threaded, R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}, witness::Bool, ::Type{T}) where {I, T}
+    if R isa Boolean && treeheight(D) >= P.deep
+        value, h = contractsolve(P, R, W, D, Y, witness)
+        return convert(T, value), h
+    end
+
     Y, yord = normalize(Y)
     typ = invvtx(Y)
     base, pre = preimages(Y, typ)

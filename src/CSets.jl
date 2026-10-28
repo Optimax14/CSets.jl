@@ -25,6 +25,7 @@ include("contraction.jl")
 include("decomposition.jl")
 include("color.jl")
 include("threads.jl")
+include("treecontraction.jl")
 
 greet() = print("Hello World!")
 

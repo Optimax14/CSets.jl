@@ -21,7 +21,7 @@ for trial in 1:parse(Int, get(ENV, "NTRIAL", "120"))
         W = randweights(rng, R, Y, nv)
     end
     D = decomposition(X, S; alg=MF())
-    P = Threaded(rand(rng, (1, 2, 3, 8, 16)); minwork=rand(rng, (0, 256)))
+    P = Threaded(rand(rng, (1, 2, 3, 8, 16)); minwork=rand(rng, (0, 256)), deep=rand(rng, (1, 256)))
     ok = try
         same(score(R, W, D, Y), score(P, R, W, D, Y))
     catch e
@@ -32,7 +32,7 @@ for trial in 1:parse(Int, get(ENV, "NTRIAL", "120"))
         vs, hs = color(R, W, D, Y); vp, hp = color(P, R, W, D, Y)
         ok &= same(vs, vp) && isnothing(hs) == isnothing(hp) && (isnothing(hs) || hs == hp)
     end
-    ok || println("MISMATCH trial $trial $R ntasks=$(P.ntasks) minwork=$(P.minwork)")
+    ok || println("MISMATCH trial $trial $R ntasks=$(P.ntasks) minwork=$(P.minwork) deep=$(P.deep)")
     global nok += ok; global N += 1
 end
 println("threads ok $nok / $N (nthreads=$(Threads.nthreads()))")
