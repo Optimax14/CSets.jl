@@ -9,13 +9,28 @@
 # images, and score computes the sum of the weights of all
 # homomorphisms X -> Y.
 #
+#
+# The local problem at each node is solved by f!, which takes the
+# arguments of contract! without the workspace. For a witness, the
+# backward step at each node is g!, which takes the arguments of lift!.
+# By default, f! is contract! and g! is lift!.
+#
 function score(R::AbstractSemiring, W, X::Instance{I}, S::Span{I}, Y::Instance{I}; kw...) where {I}
     D = decomposition(X, S; kw...)
     return score(R, W, D, Y)
 end
 
 function score(R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}) where {I}
-    value, h = search(R, W, D, Y, false, valtype(R, W))
+    return score(kernel(ContractionWorkspace(D)), R, W, D, Y)
+end
+
+function score(f!, R::AbstractSemiring, W, X::Instance{I}, S::Span{I}, Y::Instance{I}; kw...) where {I}
+    D = decomposition(X, S; kw...)
+    return score(f!, R, W, D, Y)
+end
+
+function score(f!, R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}) where {I}
+    value, h = solve(f!, nothing, R, W, D, Y, valtype(R, W))
     return value
 end
 
@@ -29,8 +44,17 @@ function color(R::AbstractSemiring, W, X::Instance{I}, S::Span{I}, Y::Instance{I
 end
 
 function color(R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}) where {I}
+    return color(kernel(ContractionWorkspace(D)), lift!, R, W, D, Y)
+end
+
+function color(f!, g!, R::AbstractSemiring, W, X::Instance{I}, S::Span{I}, Y::Instance{I}; kw...) where {I}
+    D = decomposition(X, S; kw...)
+    return color(f!, g!, R, W, D, Y)
+end
+
+function color(f!, g!, R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}) where {I}
     @assert isselective(R)
-    return search(R, W, D, Y, true, valtype(R, W))
+    return solve(f!, g!, R, W, D, Y, valtype(R, W))
 end
 
 #
@@ -68,7 +92,20 @@ function valtype(R::AbstractSemiring, W)
     return valtype(R)
 end
 
-function search(R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}, witness::Bool, ::Type{T}) where {I, T}
+#
+# The default local problem: contract! with the workspace work.
+#
+function kernel(work::ContractionWorkspace)
+    return function (R, C, Y, pre, base, typ, xwgt, wgt, ckey, cval, ccol, key, val, okey, oval, ko, vo, fac, fo)
+        return contract!(R, C, Y, pre, base, typ, xwgt, wgt, ckey, cval, ccol, key, val, okey, oval, ko, vo, fac, fo, work)
+    end
+end
+
+#
+# Search with the local problem f! and, unless g! is nothing, find a
+# witness with the backward step g!.
+#
+function solve(f!, g!, R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}, ::Type{T}) where {I, T}
     Y, yord = normalize(Y)
     typ = invvtx(Y)
     base, pre = preimages(Y, typ)
@@ -76,61 +113,14 @@ function search(R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}, wit
     #
     # the factor (back-pointers) is kept only for a witness
     #
-    if witness
+    if !isnothing(g!)
         fac = Vector{I}(undef, 1024)
     else
         fac = nothing
     end
 
-    return solve(R, D, Y, yord, pre, base, typ, xwgt, wgt, fac)
+    return solve(f!, g!, R, D, Y, yord, pre, base, typ, xwgt, wgt, fac)
 end
-
-#
-# The workspace sizes: the largest bag, the largest number of children
-# of a node, the largest number of separator incidences of the children
-# of a node, and the largest number of edges in a bag.
-#
-function bagsizes(D::Decomposition{I}) where {I}
-    X = D.inst
-    nt = D.tree.nu
-    mbag = zero(I)
-    mchd = zero(I)
-    msep = zero(I)
-    medg = zero(I)
-
-    for t in oneto(nt)
-        rstrt = D.res.xadj[t]
-        rstop = D.res.xadj[t + one(I)] - one(I)
-        sstrt = D.sep.xadj[t]
-        sstop = D.sep.xadj[t + one(I)] - one(I)
-        cstrt = D.tree.xadj[t]
-        cstop = D.tree.xadj[t + one(I)] - one(I)
-        n = zero(I)
-        d = zero(I)
-
-        for j in cstrt:cstop
-            c = D.tree.adjncy[j]
-            n += D.sep.xadj[c + one(I)] - D.sep.xadj[c]
-        end
-
-        for x in rstrt:rstop
-            d += X.dom.xadj[x + one(I)] - X.dom.xadj[x]
-        end
-
-        for p in sstrt:sstop
-            x = D.sep.adjncy[p]
-            d += X.dom.xadj[x + one(I)] - X.dom.xadj[x]
-        end
-
-        mbag = max(mbag, rstop - rstrt + sstop - sstrt + two(I))
-        mchd = max(mchd, cstop - cstrt + one(I))
-        msep = max(msep, n)
-        medg = max(medg, d)
-    end
-
-    return mbag, mchd, msep, medg
-end
-
 
 #
 # The preimages of the elements of Y under each arc. The preimages of y
@@ -284,15 +274,19 @@ end
 # The forward pass visits the nodes in postorder. At each node, the
 # decomposition is restricted to a contraction, the arguments (the
 # children's tables, in place, and the weights of the bag, copied) are
-# gathered, and the local problem is solved. The tables live on a
-# stack: the children's tables are on top, the table of the node is
-# written above them and then moved down over them. For a witness, each
-# column of the table also gets a back-pointer in the factor: a residual
-# assignment attaining its value, and the matched column of each
-# child's table. The backward pass follows the back-pointers from the
-# root.
+# gathered, and the local problem is solved by f!. The tables live on
+# a stack: the children's tables are on top, the table of the node is
+# written above them and then moved down over them. For a witness, f!
+# also writes back-pointers to the factor.
+#
+# The backward pass visits the nodes from the root. At each node, the
+# separator is assigned by the ancestors, and g! reads the
+# back-pointers to assign the residual and choose a column for each
+# child.
 #
 function solve(
+        f!,
+        g!,
         R::AbstractSemiring,
         D::Decomposition{I},
         Y::Instance{I},
@@ -313,7 +307,6 @@ function solve(
     nu = D.inst.dom.nu
     nt = D.tree.nu
     mbag, mchd, msep, medg = bagsizes(D)
-    mnar = msep + mchd
     #
     # the contraction
     #
@@ -338,27 +331,10 @@ function solve(
         lwgt  = Vector{T}(undef, 1024)
     end
     #
-    # the local problem
+    # the backward step
     #
-    kind = FVector{I}(undef, mbag)
-    arg  = FVector{I}(undef, mbag)
-    cur  = FVector{I}(undef, mbag)
-    stop = FVector{I}(undef, mbag)
-    bknd = FVector{I}(undef, mbag)
-    bpos = FVector{I}(undef, mbag)
-    barc = FVector{I}(undef, mbag)
-    xchk = FVector{I}(undef, mbag + one(I))
-    chka = FVector{I}(undef, medg)
-    chkp = FVector{I}(undef, medg)
-    chkd = FVector{Bool}(undef, medg)
-    xnar = FVector{I}(undef, mbag + one(I))
-    narc = FVector{I}(undef, msep)
-    nari = FVector{I}(undef, msep)
-    naro = FVector{I}(undef, msep)
-    rlo  = FVector{I}(undef, mnar)
-    rhi  = FVector{I}(undef, mnar)
-    coff = FVector{I}(undef, mchd)
     hloc = FVector{I}(undef, mbag)
+    sel  = FVector{I}(undef, mchd)
     #
     # the stack of tables: the table of node t has ncol[t] columns,
     # with keys tab[xtab[t]] ... and values tval[vtab[t]] ...
@@ -371,7 +347,7 @@ function solve(
     ntab = zero(I)
     nval = zero(I)
     #
-    # the factor: the back-pointers of node t are fac[xfac[t]] ...
+    # the factor: the back-pointers of node t follow fac[xfac[t]]
     #
     if isnothing(fac)
         xfac = nothing
@@ -384,7 +360,7 @@ function solve(
     for t in oneto(nt)
         C = restrict!(D, pos, xadj, adjncy, vtx, arc, sxadj, sadjncy, t)
         lwgt = gather!(D, xtab, vtab, ncol, xwgt, wgt, ckey, cval, ccol, lxwgt, lwgt, t)
-        n = contract!(R, C, Y, pre, base, typ, lxwgt, lwgt, ckey, cval, ccol, tab, tval, tab, tval, ntab, nval, fac, nfac, kind, arg, cur, stop, bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, coff, hloc)
+        n, nf = f!(R, C, Y, pre, base, typ, lxwgt, lwgt, ckey, cval, ccol, tab, tval, tab, tval, ntab, nval, fac, nfac)
 
         if iszero(n)
             return szero(R, T), nothing
@@ -422,8 +398,8 @@ function solve(
         end
 
         if !isnothing(fac)
-            xfac[t] = nfac + one(I)
-            nfac += n * (C.inst.dom.nu - s + C.sep.nu)
+            xfac[t] = nfac
+            nfac += nf
         end
     end
     #
@@ -440,27 +416,33 @@ function solve(
         return value, nothing
     end
     #
-    # the backward pass: ncol[t] becomes the column of the table of t
-    # chosen by its parent
+    # the backward pass: h is the assignment, and ncol[t] becomes the
+    # choice for node t made by its parent
     #
     h = FVector{I}(undef, nu)
     ncol[nt] = one(I)
 
     for t in nt:-one(I):one(I)
+        C = restrict!(D, pos, xadj, adjncy, vtx, arc, sxadj, sadjncy, t)
+        nr = C.nr
         rstrt = D.res.xadj[t]
-        rstop = D.res.xadj[t + one(I)] - one(I)
+        sstrt = D.sep.xadj[t]
         cstrt = D.tree.xadj[t]
-        cstop = D.tree.xadj[t + one(I)] - one(I)
-        nr = rstop - rstrt + one(I)
-        nc = cstop - cstrt + one(I)
-        l = xfac[t] + (ncol[t] - one(I)) * (nr + nc) - one(I)
-
-        for x in oneto(nr)
-            h[rstrt + x - one(I)] = fac[l + x]
+        #
+        # the separator is assigned by the ancestors
+        #
+        for x in nr + one(I):C.inst.dom.nu
+            hloc[x] = h[D.sep.adjncy[sstrt + x - nr - one(I)]]
         end
 
-        for j in oneto(nc)
-            ncol[D.tree.adjncy[cstrt + j - one(I)]] = fac[l + nr + j]
+        g!(C, fac, xfac[t], hloc, ncol[t], sel)
+
+        for x in oneto(nr)
+            h[rstrt + x - one(I)] = hloc[x]
+        end
+
+        for j in oneto(C.sep.nu)
+            ncol[D.tree.adjncy[cstrt + j - one(I)]] = sel[j]
         end
     end
 

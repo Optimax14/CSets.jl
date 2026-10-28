@@ -45,6 +45,78 @@ struct Contraction{I}
 end
 
 #
+# The work arrays of contract!, sized to the largest bag (mbag), the
+# largest number of children (mchd), the largest number of separator
+# incidences of the children (msep), and the largest number of edges
+# in a bag (medg).
+#
+struct ContractionWorkspace{I}
+    #
+    # the search state of each element
+    #
+    kind::FVector{I}
+    arg::FVector{I}
+    cur::FVector{I}
+    stop::FVector{I}
+    #
+    # the plan: where the candidates of each element come from
+    #
+    bknd::FVector{I}
+    bpos::FVector{I}
+    barc::FVector{I}
+    #
+    # the plan: the edge checks at each element
+    #
+    xchk::FVector{I}
+    chka::FVector{I}
+    chkp::FVector{I}
+    chkd::FVector{Bool}
+    #
+    # the plan: the child ports at each element
+    #
+    xnar::FVector{I}
+    narc::FVector{I}
+    nari::FVector{I}
+    naro::FVector{I}
+    #
+    # the ranges of matching columns of the children's tables
+    #
+    rlo::FVector{I}
+    rhi::FVector{I}
+    coff::FVector{I}
+    #
+    # the assignment
+    #
+    h::FVector{I}
+end
+
+function ContractionWorkspace{I}(mbag::Integer, mchd::Integer, msep::Integer, medg::Integer) where {I}
+    mnar = msep + mchd
+
+    kind = FVector{I}(undef, mbag)
+    arg  = FVector{I}(undef, mbag)
+    cur  = FVector{I}(undef, mbag)
+    stop = FVector{I}(undef, mbag)
+    bknd = FVector{I}(undef, mbag)
+    bpos = FVector{I}(undef, mbag)
+    barc = FVector{I}(undef, mbag)
+    xchk = FVector{I}(undef, mbag + one(I))
+    chka = FVector{I}(undef, medg)
+    chkp = FVector{I}(undef, medg)
+    chkd = FVector{Bool}(undef, medg)
+    xnar = FVector{I}(undef, mbag + one(I))
+    narc = FVector{I}(undef, msep)
+    nari = FVector{I}(undef, msep)
+    naro = FVector{I}(undef, msep)
+    rlo  = FVector{I}(undef, mnar)
+    rhi  = FVector{I}(undef, mnar)
+    coff = FVector{I}(undef, mchd)
+    h    = FVector{I}(undef, mbag)
+
+    return ContractionWorkspace{I}(kind, arg, cur, stop, bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, coff, h)
+end
+
+#
 # The local problem, forward. The arguments are the table of each child
 # j, with ccol[j] columns, keys key[ckey[j]] ... and values
 # val[cval[j]] ..., and the weights of each element x of the bag,
@@ -58,7 +130,8 @@ end
 # Unless fac is nothing, also write after fac[fo] a back-pointer for
 # each column: the residual assignment of an extension attaining its
 # value, and the matched column of each child's table. This requires a
-# selective semiring.
+# selective semiring. Returns the number of columns and the number of
+# entries written to fac.
 #
 # The search assigns the bag from the end: first the separator, then
 # the residual. Each column is the separator assignment in bag order,
@@ -84,26 +157,28 @@ function contract!(
         vo::I,
         fac,
         fo::I,
-        kind::AbstractVector{I},
-        arg::AbstractVector{I},
-        cur::AbstractVector{I},
-        stop::AbstractVector{I},
-        bknd::AbstractVector{I},
-        bpos::AbstractVector{I},
-        barc::AbstractVector{I},
-        xchk::AbstractVector{I},
-        chka::AbstractVector{I},
-        chkp::AbstractVector{I},
-        chkd::AbstractVector{Bool},
-        xnar::AbstractVector{I},
-        narc::AbstractVector{I},
-        nari::AbstractVector{I},
-        naro::AbstractVector{I},
-        rlo::AbstractVector{I},
-        rhi::AbstractVector{I},
-        coff::AbstractVector{I},
-        h::AbstractVector{I},
+        work::ContractionWorkspace{I},
     ) where {I, T}
+    kind = work.kind
+    arg  = work.arg
+    cur  = work.cur
+    stop = work.stop
+    bknd = work.bknd
+    bpos = work.bpos
+    barc = work.barc
+    xchk = work.xchk
+    chka = work.chka
+    chkp = work.chkp
+    chkd = work.chkd
+    xnar = work.xnar
+    narc = work.narc
+    nari = work.nari
+    naro = work.naro
+    rlo  = work.rlo
+    rhi  = work.rhi
+    coff = work.coff
+    h    = work.h
+
     nr = C.nr
     m = C.inst.dom.nu
     s = m - nr
@@ -120,7 +195,7 @@ function contract!(
             n += one(I)
         end
 
-        return n
+        return n, tracesize(C, fac, n)
     end
     #
     # acc sums the weights of the extensions of the current separator
@@ -163,7 +238,7 @@ function contract!(
                     acc = szero(R, T)
 
                     if iszero(s)
-                        return n
+                        return n, tracesize(C, fac, n)
                     end
 
                     k = nr + one(I)
@@ -185,7 +260,7 @@ function contract!(
         end
     end
 
-    return n
+    return n, tracesize(C, fac, n)
 end
 
 #
@@ -712,6 +787,47 @@ function trace!(
 
     for j in oneto(nc)
         fac[l + nr + j] = rlo[coff[j]]
+    end
+
+    return
+end
+
+#
+# The number of entries of the back-pointers of n columns.
+#
+function tracesize(C::Contraction{I}, fac, n::I) where {I}
+    if isnothing(fac)
+        return zero(I)
+    end
+
+    return n * (C.nr + C.sep.nu)
+end
+
+#
+# The local problem, backward: given the back-pointers fac[fo + 1] ...
+# written by contract!, an assignment h[nr + 1], ..., h[m] of the
+# separator, and the column chosen for it, write a residual assignment
+# h[1], ..., h[nr] attaining its value, and the column chosen for each
+# child j (sel[j]).
+#
+function lift!(
+        C::Contraction{I},
+        fac::AbstractVector{I},
+        fo::I,
+        h::AbstractVector{I},
+        choice::I,
+        sel::AbstractVector{I},
+    ) where {I}
+    nr = C.nr
+    nc = C.sep.nu
+    l = fo + (choice - one(I)) * (nr + nc)
+
+    for x in oneto(nr)
+        h[x] = fac[l + x]
+    end
+
+    for j in oneto(nc)
+        sel[j] = fac[l + nr + j]
     end
 
     return

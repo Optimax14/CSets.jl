@@ -408,3 +408,54 @@ function restrict!(
     sep = Span{I}(nc, m, ns - one(I), sxadj, sadjncy)
     return Contraction{I}(nr, inst, sep)
 end
+
+#
+# The workspace sizes: the largest bag, the largest number of children
+# of a node, the largest number of separator incidences of the children
+# of a node, and the largest number of edges in a bag.
+#
+function bagsizes(D::Decomposition{I}) where {I}
+    X = D.inst
+    nt = D.tree.nu
+    mbag = zero(I)
+    mchd = zero(I)
+    msep = zero(I)
+    medg = zero(I)
+
+    for t in oneto(nt)
+        rstrt = D.res.xadj[t]
+        rstop = D.res.xadj[t + one(I)] - one(I)
+        sstrt = D.sep.xadj[t]
+        sstop = D.sep.xadj[t + one(I)] - one(I)
+        cstrt = D.tree.xadj[t]
+        cstop = D.tree.xadj[t + one(I)] - one(I)
+        n = zero(I)
+        d = zero(I)
+
+        for j in cstrt:cstop
+            c = D.tree.adjncy[j]
+            n += D.sep.xadj[c + one(I)] - D.sep.xadj[c]
+        end
+
+        for x in rstrt:rstop
+            d += X.dom.xadj[x + one(I)] - X.dom.xadj[x]
+        end
+
+        for p in sstrt:sstop
+            x = D.sep.adjncy[p]
+            d += X.dom.xadj[x + one(I)] - X.dom.xadj[x]
+        end
+
+        mbag = max(mbag, rstop - rstrt + sstop - sstrt + two(I))
+        mchd = max(mchd, cstop - cstrt + one(I))
+        msep = max(msep, n)
+        medg = max(medg, d)
+    end
+
+    return mbag, mchd, msep, medg
+end
+
+function ContractionWorkspace(D::Decomposition{I}) where {I}
+    mbag, mchd, msep, medg = bagsizes(D)
+    return ContractionWorkspace{I}(mbag, mchd, msep, medg)
+end
