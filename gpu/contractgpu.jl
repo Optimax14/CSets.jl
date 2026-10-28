@@ -108,8 +108,12 @@ end
 # the value of column x of bag t: the product over its done children
 # (except skip) of their messages
 #
-@inline function colval(alg::BoolPacked, xch, chl, xC, cproj, done, v, voff, t, x, skip)
+@inline function colval(alg::BoolPacked, xch, chl, xC, cproj, done, v, voff, t, x, skip, cw, xF)
     nch = xch[t + one(J)] - xch[t]
+
+    @inbounds if iszero(cw[xF[t] + x])
+        return false
+    end
 
     @inbounds for j in one(J):nch
         c = chl[xch[t] + j - one(J)]
@@ -126,9 +130,9 @@ end
     return true
 end
 
-@inline function colval(alg::Semiring, xch, chl, xC, cproj, done, v, voff, t, x, skip)
+@inline function colval(alg::Semiring, xch, chl, xC, cproj, done, v, voff, t, x, skip, cw, xF)
     nch = xch[t + one(J)] - xch[t]
-    r = alg.one
+    @inbounds r = cw[xF[t] + x]
 
     @inbounds for j in one(J):nch
         c = chl[xch[t] + j - one(J)]
@@ -275,7 +279,7 @@ function chainkernel!(xch, chl, done, nund, chain, ptr, chj, nt)
     return
 end
 
-function buildkernel!(alg, M, moff, rs, proj, xbag, xF, xch, chl, xC, cproj, done, v, voff, chain, ptr, chj, nx)
+function buildkernel!(alg, M, moff, rs, proj, xbag, xF, xch, chl, xC, cproj, done, v, voff, chain, ptr, chj, nx, cw)
     g = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
 
     @inbounds if g <= nx
@@ -287,7 +291,7 @@ function buildkernel!(alg, M, moff, rs, proj, xbag, xF, xch, chl, xC, cproj, don
             p = cproj[xC[t] + (x - one(J)) * nch + chj[t]]
 
             if p > zero(J)
-                val = colval(alg, xch, chl, xC, cproj, done, v, voff, t, x, ptr[t])
+                val = colval(alg, xch, chl, xC, cproj, done, v, voff, t, x, ptr[t], cw, xF)
                 accum!(alg, M, moff[t], rs[t], p, proj[g], val)
             end
         end
@@ -316,7 +320,7 @@ function jumpkernel!(alg, chain, ptr, ptr2, L, M, M2, moff, rs, flag, nt, total)
                 if a <= L[ptr[u]]
                     M2[g] = jumpentry(alg, M, moff, rs, L, t, u, a, w)
                 else
-                    M2[g] = zero(eltype(M2))
+                    M2[g] = azero(alg)
                 end
 
                 if isone(a) && isone(w)
@@ -371,7 +375,7 @@ end
 #
 # bags to rake (all children done): zero their messages
 #
-function rakemarkkernel!(done, nund, newd, v, voff, rs, nt)
+function rakemarkkernel!(alg, done, nund, newd, v, voff, rs, nt)
     t = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
 
     @inbounds if t <= nt
@@ -379,7 +383,7 @@ function rakemarkkernel!(done, nund, newd, v, voff, rs, nt)
             newd[t] = one(J)
 
             for k in one(J):rs[t]
-                v[voff[t] + k] = zero(eltype(v))
+                v[voff[t] + k] = azero(alg)
             end
         else
             newd[t] = zero(J)
@@ -389,14 +393,14 @@ function rakemarkkernel!(done, nund, newd, v, voff, rs, nt)
     return
 end
 
-function rakekernel!(alg, v, voff, rs, proj, xbag, xF, xch, chl, xC, cproj, done, newd, nx)
+function rakekernel!(alg, v, voff, rs, proj, xbag, xF, xch, chl, xC, cproj, done, newd, nx, cw)
     g = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
 
     @inbounds if g <= nx
         t = xbag[g]
 
         if isone(newd[t])
-            val = colval(alg, xch, chl, xC, cproj, done, v, voff, t, g - xF[t], zero(J))
+            val = colval(alg, xch, chl, xC, cproj, done, v, voff, t, g - xF[t], zero(J), cw, xF)
             accum!(alg, v, voff[t], zero(J), one(J), proj[g], val)
         end
     end
@@ -474,7 +478,7 @@ function updatekernel!(alg, newd, done, nund, parent, v, voff, rs, L, flag, nt)
         empty = true
 
         for k in one(J):rs[t]
-            if v[voff[t] + k] != zero(eltype(v))
+            if v[voff[t] + k] != azero(alg)
                 empty = false
             end
         end
@@ -490,7 +494,28 @@ end
 #
 # witness
 #
-function xselkernel!(alg, xsel, v, voff, proj, xbag, xF, xch, chl, xC, cproj, done, nx)
+#
+# best[t][b] = ⊕ of the values of the columns of t over b, with the
+# final messages of the children
+#
+function bestkernel!(alg, best, v, voff, rs, proj, xbag, xF, xch, chl, xC, cproj, done, nx, cw)
+    g = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+
+    @inbounds if g <= nx
+        t = xbag[g]
+        val = colval(alg, xch, chl, xC, cproj, done, v, voff, t, g - xF[t], zero(J), cw, xF)
+        accum!(alg, best, voff[t], zero(J), one(J), proj[g], val)
+    end
+
+    return
+end
+
+#
+# x_t(b): the first column over b that attains the message (Boolean:
+# any column with value 1; selective semirings: a column whose value is
+# the best one)
+#
+function xselkernel!(alg, xsel, v, voff, proj, xbag, xF, xch, chl, xC, cproj, done, nx, cw, best)
     g = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
 
     @inbounds if g <= nx
@@ -498,12 +523,24 @@ function xselkernel!(alg, xsel, v, voff, proj, xbag, xF, xch, chl, xC, cproj, do
         x = g - xF[t]
         b = proj[g]
 
-        if isnz(alg, msg(alg, v, voff, t, b)) && isnz(alg, colval(alg, xch, chl, xC, cproj, done, v, voff, t, x, zero(J)))
-            CUDA.atomic_min!(pointer(xsel, xF[t] + b), x)
+        if isnz(alg, msg(alg, v, voff, t, b))
+            val = colval(alg, xch, chl, xC, cproj, done, v, voff, t, x, zero(J), cw, xF)
+
+            if attains(alg, val, best, voff, t, b)
+                CUDA.atomic_min!(pointer(xsel, xF[t] + b), x)
+            end
         end
     end
 
     return
+end
+
+@inline function attains(::BoolPacked, val, best, voff, t, b)
+    return val
+end
+
+@inline function attains(S::Semiring, val, best, voff, t, b)
+    @inbounds return val != S.zero && val == best[voff[t] + b]
 end
 
 function fkernel!(parent, slot, xch, xC, cproj, xF, L, xsel, f, maxL, nt)
@@ -620,7 +657,7 @@ function absorbrowkernel!(alg, alist, na, ptr, L, M, M2, moff, rs, maxL)
             if a <= L[ptr[u]]
                 M2[o + w] = jumpentry(alg, M, moff, rs, L, t, u, a, w)
             else
-                M2[o + w] = zero(eltype(M2))
+                M2[o + w] = azero(alg)
             end
         end
     end
@@ -673,7 +710,7 @@ function absorbrowallkernel!(alg, absorb, ptr, L, M, M2, moff, rs, maxL, nt)
             if a <= L[ptr[u]]
                 M2[o + w] = jumpentry(alg, M, moff, rs, L, t, u, a, w)
             else
-                M2[o + w] = zero(eltype(M2))
+                M2[o + w] = azero(alg)
             end
         end
     end
@@ -725,6 +762,93 @@ function finmark2kernel!(chain, rem, ptr, done, newd, nt)
 
     @inbounds if t <= nt
         newd[t] = isone(chain[t]) && iszero(rem[t]) && isone(done[ptr[t]]) ? one(J) : zero(J)
+    end
+
+    return
+end
+
+#
+# Weights, in the conventions of CSets.score / CSets.color: W is
+# nothing or has one entry per sort c, nothing or a |Y(c)| × |X(c)|
+# matrix (caller's numbering). Element r of D.inst gets the column
+#
+#    wval[woff[r]] ... wval[woff[r + 1] - 1]
+#
+# indexed by y - typx[c] for y of sort c in the normalized Y (empty if
+# every image has weight 1).
+#
+function weightcols(D::Decomposition{I}, Yn::Instance{I}, W, ::Type{T}) where {I, T}
+    X = D.inst
+    nu = X.dom.nu
+    ns = X.cod.nu
+    typ = invvtx(Yn)
+    torg = zeros(I, nu)
+    rank = zeros(I, nu)
+    nsrt = zeros(I, ns)
+    woff = Vector{J}(undef, nu + 1)
+
+    for r in oneto(nu)
+        torg[D.res.adjncy[r]] = X.vtx[r]
+    end
+
+    for v in oneto(nu)
+        c = torg[v]
+        nsrt[c] += one(I)
+        rank[v] = nsrt[c]
+    end
+
+    woff[1] = 1
+
+    for r in oneto(nu)
+        c = X.vtx[r]
+        n = isnothing(W) || isnothing(W[c]) ? 0 : typ.xadj[c + 1] - typ.xadj[c]
+        woff[r + 1] = woff[r] + n
+    end
+
+    wval = Vector{T}(undef, max(woff[nu + 1] - 1, 1))
+
+    for r in oneto(nu)
+        c = X.vtx[r]
+        l = woff[r]
+
+        if l < woff[r + 1]
+            M = W[c]
+            j = rank[D.res.adjncy[r]]
+
+            for i in 1:woff[r + 1] - l
+                wval[l + i - 1] = convert(T, M[i, j])
+            end
+        end
+    end
+
+    return woff, wval, J.(collect(typ.xadj))
+end
+
+@inline wmul(::BoolPacked, a, b) = a & b
+@inline wmul(S::Semiring, a, b) = S.mul(a, b)
+
+#
+# the weight of column x of Full_t: the product of the weights of its
+# residual elements (each element is residual in exactly one bag)
+#
+function cwkernel!(alg, cw, one_, tab, xtab, m, s, ord, xpos, vtx, typx, woff, wval, xbag, xF, nx)
+    g = (blockIdx().x - one(J)) * blockDim().x + threadIdx().x
+
+    @inbounds if g <= nx
+        t = xbag[g]
+        x = g - xF[t]
+        r = one_
+
+        for k in s[t] + one(J):m[t]
+            e = ord[xpos[t] + k]
+
+            if woff[e] < woff[e + one(J)]
+                y = full(tab, xtab, m, t, x, k)
+                r = wmul(alg, r, wval[woff[e] + y - typx[vtx[xpos[t] + k]]])
+            end
+        end
+
+        cw[g] = r
     end
 
     return
@@ -824,7 +948,7 @@ end
 # the root (for counting: the number of homomorphisms).
 #
 function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=alg isa BoolPacked,
-        maxbytes=CUDA.total_memory() ÷ 4, jump=:mate, batch=8, stats=nothing, kw...) where {I}
+        maxbytes=CUDA.total_memory() ÷ 4, jump=:mate, batch=8, weights=nothing, withvalue=false, stats=nothing, kw...) where {I}
     tst = time_ns()
     D = C.D
     X = D.inst
@@ -845,7 +969,7 @@ function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=
     tlocal = time_ns()
 
     if isnothing(R)
-        return witness ? nothing : alg.zero
+        return witness ? (withvalue ? (azero(alg), nothing) : nothing) : azero(alg)
     end
 
     tab, xtab, Fd, Pc, yord = R.tab, R.xtab, R.ncol, R.Pc, R.yord
@@ -906,11 +1030,25 @@ function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=
     end
 
     @cuda threads=th blocks=bx cprojkernel!(tab, xtab, Fd, md, sd, L, locfirst, xchd, chld, cpoffd, cposd, xCd, cproj, xbagd, xFd, J(nx))
+    #
+    # column weights
+    #
+    CT = alg isa BoolPacked ? J : typeof(alg.one)
+    one_ = alg isa BoolPacked ? one(J) : alg.one
+
+    if isnothing(weights)
+        cw = CUDA.fill(one_, max(nx, 1))
+    else
+        woffh, wvalh, typxh = weightcols(D, R.Y, weights, alg isa BoolPacked ? Bool : CT)
+        wvald = alg isa BoolPacked ? CuVector{J}(J.(wvalh)) : CuVector{CT}(wvalh)
+        cw = CuVector{CT}(undef, max(nx, 1))
+        @cuda threads=th blocks=bx cwkernel!(alg, cw, one_, tab, xtab, md, sd, ordd, xposd, d(Pc.vtx), d(typxh), d(woffh), wvald, xbagd, xFd, J(nx))
+    end
     rs = d(rsh); moff = CuVector{Int}(moffh); voff = CuVector{Int}(voffh)
     #
     # contraction
     #
-    done = CUDA.zeros(J, nt); nund = d(nch); v = CUDA.zeros(E, max(Vtot, 1))
+    done = CUDA.zeros(J, nt); nund = d(nch); v = CUDA.fill(azero(alg), max(Vtot, 1))
     chain = CUDA.zeros(J, nt); ptr = CUDA.zeros(J, nt); ptr2 = CUDA.zeros(J, nt); chj = CUDA.zeros(J, nt)
     M = CuVector{E}(undef, max(Mtot, 1)); M2 = CuVector{E}(undef, max(Mtot, 1))
     newd = CUDA.zeros(J, nt)
@@ -928,8 +1066,8 @@ function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=
         nphase += 1
         nphase > nt + 1 && error("contraction did not finish")
         @cuda threads=th blocks=bl chainkernel!(xchd, chld, done, nund, chain, ptr, chj, J(nt))
-        fill!(M, zero(E))
-        @cuda threads=th blocks=bx buildkernel!(alg, M, moff, rs, proj, xbagd, xFd, xchd, chld, xCd, cproj, done, v, voff, chain, ptr, chj, J(nx))
+        fill!(M, azero(alg))
+        @cuda threads=th blocks=bx buildkernel!(alg, M, moff, rs, proj, xbagd, xFd, xchd, chld, xCd, cproj, done, v, voff, chain, ptr, chj, J(nx), cw)
         tj = time_ns()
 
         if jump == :wyllie
@@ -973,8 +1111,8 @@ function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=
 
         tjump += time_ns() - tj
         flag .= zero(J)
-        @cuda threads=th blocks=bl rakemarkkernel!(done, nund, newd, v, voff, rs, J(nt))
-        @cuda threads=th blocks=bx rakekernel!(alg, v, voff, rs, proj, xbagd, xFd, xchd, chld, xCd, cproj, done, newd, J(nx))
+        @cuda threads=th blocks=bl rakemarkkernel!(alg, done, nund, newd, v, voff, rs, J(nt))
+        @cuda threads=th blocks=bx rakekernel!(alg, v, voff, rs, proj, xbagd, xFd, xchd, chld, xCd, cproj, done, newd, J(nx), cw)
         @cuda threads=th blocks=bl updatekernel!(alg, newd, done, nund, parentd, v, voff, rs, L, flag, J(nt))
 
         if jump == :wyllie
@@ -997,7 +1135,7 @@ function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=
 
         if isone(status[1]) && witness
             stats === nothing || (stats[:phases] = nphase; stats[:jumps] = njump)
-            return
+            return withvalue ? (azero(alg), nothing) : nothing
         end
 
         if isone(Array(view(done, nt:nt))[1])
@@ -1010,7 +1148,7 @@ function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=
     if !witness
         vr = Array(view(v, voffh[nt] + 1:voffh[nt] + rsh[nt]))
         stats === nothing || (stats[:phases] = nphase; stats[:jumps] = njump)
-        return isempty(vr) ? alg.zero : vr[1]
+        return isempty(vr) ? azero(alg) : vr[1]
     end
     #
     # witness
@@ -1019,7 +1157,9 @@ function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=
     f = CuVector{J}(undef, nt * maxL); g = CuVector{J}(undef, nt * maxL)
     anc2 = CUDA.zeros(J, nt)
     bf = cld(nt * maxL, th)
-    @cuda threads=th blocks=bx xselkernel!(alg, xsel, v, voff, proj, xbagd, xFd, xchd, chld, xCd, cproj, done, J(nx))
+    best = alg isa BoolPacked ? v : fill!(similar(v), alg.zero)
+    alg isa BoolPacked || @cuda threads=th blocks=bx bestkernel!(alg, best, v, voff, rs, proj, xbagd, xFd, xchd, chld, xCd, cproj, done, J(nx), cw)
+    @cuda threads=th blocks=bx xselkernel!(alg, xsel, v, voff, proj, xbagd, xFd, xchd, chld, xCd, cproj, done, J(nx), cw, best)
     @cuda threads=th blocks=bf fkernel!(parentd, slotd, xchd, xCd, cproj, xFd, L, xsel, f, J(maxL), J(nt))
     anc = copy(parentd)
 
@@ -1053,5 +1193,83 @@ function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=
         stats[:phases] = nphase; stats[:jumps] = njump; stats[:maxL] = maxL; stats[:mbytes] = (2Mtot + Vtot) * sizeof(E)
     end
 
-    return out
+    return withvalue ? (alg isa BoolPacked ? !iszero(vroot[1]) : vroot[1], out) : out
+end
+
+azero(::BoolPacked) = zero(UInt64)
+azero(S::Semiring) = S.zero
+
+#
+# atomic min by compare-and-swap (for min-plus)
+#
+@inline function atomicmin!(ptr, x)
+    old = unsafe_load(ptr)
+
+    while x < old
+        prev = CUDA.atomic_cas!(ptr, old, x)
+        prev === old && return
+        old = prev
+    end
+
+    return
+end
+
+#
+# Richard's semirings (CSets.AbstractSemiring) as algebras
+#
+algebra(::CSets.Boolean, ::Type{T}) where {T} = BoolPacked()
+algebra(::CSets.Lawvere, ::Type{T}) where {T} = Semiring(typemax(T), zero(T), min, +, atomicmin!)
+algebra(::CSets.Probability, ::Type{T}) where {T} = Semiring(zero(T), one(T), +, *, CUDA.atomic_add!)
+
+#
+# CSets.score(R, W, D, Y) on the GPU: the sum over all homomorphisms
+# of the product of the weights of the images.
+#
+function score(R::CSets.AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}; kw...) where {I}
+    return score(R, W, prepare_contract(D), Y; kw...)
+end
+
+function score(R::CSets.AbstractSemiring, W, C::ContractPrep{I}, Y::Instance{I}; kw...) where {I}
+    T = CSets.valtype(R, W)
+    alg = algebra(R, T)
+    r = contract(C, Y; alg, weights=W, witness=false, kw...)
+
+    if r === :wide
+        return CSets.score(R, W, C.D, Y)
+    elseif alg isa BoolPacked
+        return convert(T, !iszero(r))
+    else
+        return convert(T, r)
+    end
+end
+
+#
+# CSets.color(R, W, D, Y) on the GPU: the score and a homomorphism
+# attaining it (or nothing). R must be selective.
+#
+function color(R::CSets.AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}; kw...) where {I}
+    return color(R, W, prepare_contract(D), Y; kw...)
+end
+
+function color(R::CSets.AbstractSemiring, W, C::ContractPrep{I}, Y::Instance{I}; kw...) where {I}
+    @assert CSets.isselective(R)
+    T = CSets.valtype(R, W)
+    alg = algebra(R, T)
+    r = contract(C, Y; alg, weights=W, witness=true, withvalue=true, kw...)
+
+    if r === :wide
+        return CSets.color(R, W, C.D, Y)
+    end
+
+    value, h = r
+    return isnothing(h) ? (CSets.szero(R, T), nothing) : (convert(T, value), h)
+end
+
+#
+# CSets.color(W, D, Y): a homomorphism respecting the Boolean weights W,
+# or nothing
+#
+function color(W, D::Decomposition{I}, Y::Instance{I}; kw...) where {I}
+    value, h = color(CSets.Boolean(), W, D, Y; kw...)
+    return h
 end
