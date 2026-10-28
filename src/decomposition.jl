@@ -325,3 +325,86 @@ function separators(R::Span{I}, clique, nt::I) where {I}
     xadj[nt + one(I)] = q
     return Span{I}(nt, nu, ne, xadj, adjncy)
 end
+
+#
+# Restrict the decomposition D to node t, writing the contraction into
+# the given workspaces. Each element of the bag is stamped with its
+# label in the bag (pos).
+#
+function restrict!(
+        D::Decomposition{I},
+        pos::AbstractVector{I},
+        xadj::FVector{I},
+        adjncy::FVector{I},
+        vtx::FVector{I},
+        arc::FVector{I},
+        sxadj::FVector{I},
+        sadjncy::FVector{I},
+        t::I,
+    ) where {I}
+    X = D.inst
+    rstrt = D.res.xadj[t]
+    rstop = D.res.xadj[t + one(I)] - one(I)
+    sstrt = D.sep.xadj[t]
+    sstop = D.sep.xadj[t + one(I)] - one(I)
+    cstrt = D.tree.xadj[t]
+    cstop = D.tree.xadj[t + one(I)] - one(I)
+
+    nr = rstop - rstrt + one(I)
+    m = nr + sstop - sstrt + one(I)
+    nc = cstop - cstrt + one(I)
+
+    for x in oneto(nr)
+        pos[rstrt + x - one(I)] = x
+    end
+
+    for x in nr + one(I):m
+        pos[D.sep.adjncy[sstrt + x - nr - one(I)]] = x
+    end
+    #
+    # the instance
+    #
+    xadj[one(I)] = ne = one(I)
+
+    for x in oneto(m)
+        if x <= nr
+            g = rstrt + x - one(I)
+        else
+            g = D.sep.adjncy[sstrt + x - nr - one(I)]
+        end
+
+        vtx[x] = X.vtx[g]
+        pstrt = X.dom.xadj[g]
+        pstop = X.dom.xadj[g + one(I)] - one(I)
+
+        for p in pstrt:pstop
+            adjncy[ne] = pos[X.dom.adjncy[p]]
+            arc[ne] = X.arc[p]
+            ne += one(I)
+        end
+
+        xadj[x + one(I)] = ne
+    end
+    #
+    # the children
+    #
+    sxadj[one(I)] = ns = one(I)
+
+    for j in oneto(nc)
+        c = D.tree.adjncy[cstrt + j - one(I)]
+        pstrt = D.sep.xadj[c]
+        pstop = D.sep.xadj[c + one(I)] - one(I)
+
+        for p in pstrt:pstop
+            sadjncy[ns] = pos[D.sep.adjncy[p]]
+            ns += one(I)
+        end
+
+        sxadj[j + one(I)] = ns
+    end
+
+    dom = Span{I}(m, m, ne - one(I), xadj, adjncy)
+    inst = Instance{I}(dom, X.cod, vtx, arc)
+    sep = Span{I}(nc, m, ns - one(I), sxadj, sadjncy)
+    return Contraction{I}(nr, inst, sep)
+end
