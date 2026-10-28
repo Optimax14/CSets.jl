@@ -38,7 +38,9 @@ function workloads()
     # weighted semirings on a big target
     for R in (Lawvere(), Probability())
         X, nv, rng = pk(3, 3000, 3, 0.8); Y = symmetric(30, randomgraph(rng, 30, 0.3))
-        push!(L, ("pk3-n3000-G30-$(nameof(typeof(R)))", "big", X, graphsupport(X), Y, R, randweights(rng, R, Y, nv)))
+        nyv = 30
+        W = R isa Lawvere ? Any[[round(10rand(rng), digits=2) for i in 1:nyv, j in 1:nv], nothing] : Any[[(0.5 + rand(rng)) / nyv for i in 1:nyv, j in 1:nv], nothing]
+        push!(L, ("pk3-n3000-G30-$(nameof(typeof(R)))", "big", X, graphsupport(X), Y, R, W))
     end
     # deep
     for (w, l, q) in ((4, 100000, 3), (6, 1000, 3), (5, 1000, 4), (6, 4000, 3))
