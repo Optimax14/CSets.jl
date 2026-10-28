@@ -117,6 +117,19 @@ function ContractionWorkspace{I}(mbag::Integer, mchd::Integer, msep::Integer, me
 end
 
 #
+# Bounds on the first elements assigned by the search: element m - i + 1
+# takes values in lo[i] ... hi[i] for i = 1, ..., d. The columns of a
+# bag split by bounds on its separator are the columns of the bag with
+# those values, in the same order, so the pieces can be computed apart
+# and concatenated.
+#
+struct Bounds{I}
+    d::I
+    lo::FVector{I}
+    hi::FVector{I}
+end
+
+#
 # The local problem, forward. The arguments are the table of each child
 # j, with ccol[j] columns, keys key[ckey[j]] ... and values
 # val[cval[j]] ..., and the weights of each element x of the bag,
@@ -158,6 +171,32 @@ function contract!(
         fac,
         fo::I,
         work::ContractionWorkspace{I},
+    ) where {I, T}
+    return contract!(R, C, Y, pre, base, typ, xwgt, wgt, ckey, cval, ccol, key, val, okey, oval, ko, vo, fac, fo, work, nothing)
+end
+
+function contract!(
+        R::AbstractSemiring,
+        C::Contraction{I},
+        Y::Instance{I},
+        pre::Span{I},
+        base::AbstractVector{I},
+        typ::Span{I},
+        xwgt,
+        wgt,
+        ckey::AbstractVector{I},
+        cval::AbstractVector{I},
+        ccol::AbstractVector{I},
+        key::Vector{I},
+        val::Vector{T},
+        okey::Vector{I},
+        oval::Vector{T},
+        ko::I,
+        vo::I,
+        fac,
+        fo::I,
+        work::ContractionWorkspace{I},
+        bounds,
     ) where {I, T}
     kind = work.kind
     arg  = work.arg
@@ -211,7 +250,7 @@ function contract!(
             candidates!(Y, pre, base, typ, C.inst.vtx, h, kind, arg, cur, stop, bknd, bpos, barc, xnar, nari, naro, rlo, rhi, k)
         end
 
-        if advance!(R, C, Y, pre, typ, xwgt, wgt, kind, arg, cur, stop, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, h, ckey, key, k)
+        if advance!(R, C, Y, pre, typ, xwgt, wgt, kind, arg, cur, stop, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, h, ckey, key, k, bounds)
             if k > one(I)
                 k -= one(I)
                 fresh = true
@@ -295,12 +334,21 @@ end
         ckey::AbstractVector{I},
         key::Vector{I},
         k::I,
+        bounds,
     ) where {I}
     while cur[k] <= stop[k]
         y = candidate!(C, pre, key, ckey, narc, nari, naro, rlo, rhi, kind, arg, cur, stop, k)
 
         if !ispositive(y)
             continue
+        end
+
+        if !isnothing(bounds)
+            i = C.inst.dom.nu - k + one(I)
+
+            if i <= bounds.d && (y < bounds.lo[i] || y > bounds.hi[i])
+                continue
+            end
         end
 
         if !isnothing(wgt)
