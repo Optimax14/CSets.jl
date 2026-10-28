@@ -331,7 +331,7 @@ function solve(
     end
 
     for t in oneto(nt)
-        if !bagsearch!(R, D, Y, pre, base, typ, woff, wval, ord, kind, arg, cur, stop, bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, pos, bag, h, xtab, ncol, tab, ntab, vtab, tval, nval, coff, csel, t, true)
+        if !contract!(R, D, Y, pre, base, typ, woff, wval, ord, kind, arg, cur, stop, bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, pos, bag, h, xtab, ncol, tab, ntab, vtab, tval, nval, coff, t)
             return szero(R, T), nothing
         end
     end
@@ -352,7 +352,7 @@ function solve(
     csel[nt] = one(I)
 
     for t in nt:-one(I):one(I)
-        bagsearch!(R, D, Y, pre, base, typ, woff, wval, ord, kind, arg, cur, stop, bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, pos, bag, h, xtab, ncol, tab, ntab, vtab, tval, nval, coff, csel, t, false)
+        extend!(R, D, Y, pre, base, typ, woff, wval, ord, kind, arg, cur, stop, bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, pos, bag, h, xtab, ncol, tab, vtab, tval, coff, csel, t)
     end
 
     out = FVector{I}(undef, nu)
@@ -404,13 +404,13 @@ function image(Y::Instance{I}, y::I, a::I) where {I}
 end
 
 #
-# Search the bag at node t. In the forward pass, append to the table of
-# t every separator assignment that extends over the subtree, with its
-# value; return whether there is one. In the backward pass, extend the
-# separator assignment chosen by the parent to the residual, choosing a
-# completion that attains its value.
+# The local problem at node t, forward: append to the table of t every
+# assignment of the separator that extends to the bag, with its value:
+# the sum over its extensions of the product of the residual weights
+# and the matched entries of the children's tables. Returns whether
+# the table is nonempty.
 #
-function bagsearch!(
+function contract!(
         R::AbstractSemiring,
         D::Decomposition{I},
         Y::Instance{I},
@@ -448,138 +448,61 @@ function bagsearch!(
         tval::Vector{T},
         nval::FScalar{I},
         coff::AbstractVector{I},
-        csel::AbstractVector{I},
         t::I,
-        forward::Bool,
     ) where {I, T}
-    X = D.inst
     s = D.sep.xadj[t + one(I)] - D.sep.xadj[t]
     m = s + D.res.xadj[t + one(I)] - D.res.xadj[t]
+    prepare!(D, ord, pos, bag, xchk, chka, chkp, chkd, bknd, bpos, barc, xnar, narc, nari, naro, rlo, rhi, coff, ncol, m, t)
 
-    order!(D, ord, pos, bag, t)
-    plan!(D, ord, pos, xchk, chka, chkp, chkd, bknd, bpos, barc, m)
-    plannarrow!(D, pos, xnar, narc, nari, naro, rlo, rhi, coff, ncol, m, t)
+    xtab[t] = ntab[] + one(I)
+    vtab[t] = nval[] + one(I)
+    ncol[t] = zero(I)
 
-    if forward
-        xtab[t] = ntab[] + one(I)
-        vtab[t] = nval[] + one(I)
-        ncol[t] = zero(I)
-        kmin = one(I)
-    else
-        kmin = s + one(I)
-    end
-    #
-    # in the backward pass, the separator is already assigned
-    #
-    for k in oneto(kmin - one(I))
-        narrow!(D, ord, xnar, narc, nari, naro, rlo, rhi, h, xtab, tab, k, zero(I))
-    end
+    if iszero(m)
+        w = weight(R, D, typ, woff, wval, ord, h, rlo, coff, vtab, tval, s, m, t)
 
-    if m < kmin
-        if forward
-            w = weight(R, D, typ, woff, wval, ord, h, rlo, coff, vtab, tval, s, m, t)
-
-            if w != szero(R, T)
-                record!(R, tab, ntab, tval, nval, ncol, h, ord, s, t, w)
-            end
-
-            return ispositive(ncol[t])
-        else
-            select!(D, rlo, coff, csel, t)
-            return true
+        if w != szero(R, T)
+            record!(R, tab, ntab, tval, nval, ncol, h, ord, s, t, w)
         end
+
+        return ispositive(ncol[t])
     end
     #
-    # In the forward pass, acc sums the weights of the completions of
-    # the current separator assignment. In the backward pass, target is
-    # the weight of the entry chosen by the parent.
+    # acc sums the weights of the extensions of the current separator
+    # assignment
     #
     acc = szero(R, T)
-
-    if forward || R isa Boolean
-        target = sone(R, T)
-    else
-        target = tval[vtab[t] + csel[t] - one(I)]
-    end
-
-    k = kmin
+    k = one(I)
     fresh = true
 
-    while kmin <= k
-        x = ord[k]
-
+    while ispositive(k)
         if fresh
             fresh = false
-            candidates!(Y, pre, base, typ, X.vtx, ord, h, kind, arg, cur, stop, bknd, bpos, barc, xnar, nari, naro, rlo, rhi, k)
+            candidates!(Y, pre, base, typ, D.inst.vtx, ord, h, kind, arg, cur, stop, bknd, bpos, barc, xnar, nari, naro, rlo, rhi, k)
         end
 
-        found = false
-
-        while cur[k] <= stop[k]
-            y = candidate!(D, pre, tab, xtab, narc, nari, naro, rlo, rhi, kind, arg, cur, stop, k)
-
-            if !ispositive(y)
-                continue
-            end
-
-            if !isnothing(wval)
-                l = woff[x]
-
-                if l < woff[x + one(I)] && wval[l + y - typ.xadj[X.vtx[x]]] == szero(R, T)
-                    continue
-                end
-            end
-
-            h[x] = y
-            valid = consistent(Y, ord, h, xchk, chka, chkp, chkd, y, k)
-            #
-            # child tables
-            #
-            if valid && xnar[k] < xnar[k + one(I)]
-                if kind[k] == two(I) + two(I)
-                    skip = arg[k]
-                else
-                    skip = zero(I)
-                end
-
-                valid = narrow!(D, ord, xnar, narc, nari, naro, rlo, rhi, h, xtab, tab, k, skip)
-            end
-
-            if valid
-                found = true
-                break
-            end
-        end
-
-        if found
+        if advance!(R, D, Y, pre, typ, woff, wval, ord, kind, arg, cur, stop, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, h, xtab, tab, k)
             if k < m
                 k += one(I)
                 fresh = true
             else
-                w = weight(R, D, typ, woff, wval, ord, h, rlo, coff, vtab, tval, s, m, t)
-
-                if forward
-                    acc = splus(R, acc, w)
-                    #
-                    # the separator assignment is finished when there is
-                    # no residual, or when the sum can no longer change
-                    #
-                    if k == s || (isintegral(R) && acc == sone(R, T))
-                        if acc != szero(R, T)
-                            record!(R, tab, ntab, tval, nval, ncol, h, ord, s, t, acc)
-                        end
-
-                        acc = szero(R, T)
-
-                        if iszero(s)
-                            return true
-                        end
-
-                        k = s
+                acc = splus(R, acc, weight(R, D, typ, woff, wval, ord, h, rlo, coff, vtab, tval, s, m, t))
+                #
+                # the separator assignment is finished when there is no
+                # residual, or when the sum can no longer change
+                #
+                if k == s || (isintegral(R) && acc == sone(R, T))
+                    if acc != szero(R, T)
+                        record!(R, tab, ntab, tval, nval, ncol, h, ord, s, t, acc)
                     end
-                elseif w == target
-                    select!(D, rlo, coff, csel, t)
-                    return true
+
+                    acc = szero(R, T)
+
+                    if iszero(s)
+                        return true
+                    end
+
+                    k = s
                 end
             end
         else
@@ -587,7 +510,7 @@ function bagsearch!(
             #
             # leaving the residual: the separator assignment is finished
             #
-            if forward && k == s && s < m
+            if k == s && s < m
                 if acc != szero(R, T)
                     record!(R, tab, ntab, tval, nval, ncol, h, ord, s, t, acc)
                 end
@@ -597,7 +520,207 @@ function bagsearch!(
         end
     end
 
-    return forward && ispositive(ncol[t])
+    return ispositive(ncol[t])
+end
+
+#
+# The local problem at node t, backward: given the separator assignment
+# chosen by the parent (entry csel[t] of the table of t), assign the
+# residual so that the weight equals the value of that entry, and
+# choose the matched entries of the children's tables.
+#
+function extend!(
+        R::AbstractSemiring,
+        D::Decomposition{I},
+        Y::Instance{I},
+        pre::Span{I},
+        base::AbstractVector{I},
+        typ::Span{I},
+        woff,
+        wval,
+        ord::AbstractVector{I},
+        kind::AbstractVector{I},
+        arg::AbstractVector{I},
+        cur::AbstractVector{I},
+        stop::AbstractVector{I},
+        bknd::AbstractVector{I},
+        bpos::AbstractVector{I},
+        barc::AbstractVector{I},
+        xchk::AbstractVector{I},
+        chka::AbstractVector{I},
+        chkp::AbstractVector{I},
+        chkd::AbstractVector{Bool},
+        xnar::AbstractVector{I},
+        narc::AbstractVector{I},
+        nari::AbstractVector{I},
+        naro::AbstractVector{I},
+        rlo::AbstractVector{I},
+        rhi::AbstractVector{I},
+        pos::AbstractVector{I},
+        bag::AbstractVector{I},
+        h::AbstractVector{I},
+        xtab::AbstractVector{I},
+        ncol::AbstractVector{I},
+        tab::Vector{I},
+        vtab::AbstractVector{I},
+        tval::Vector{T},
+        coff::AbstractVector{I},
+        csel::AbstractVector{I},
+        t::I,
+    ) where {I, T}
+    s = D.sep.xadj[t + one(I)] - D.sep.xadj[t]
+    m = s + D.res.xadj[t + one(I)] - D.res.xadj[t]
+    prepare!(D, ord, pos, bag, xchk, chka, chkp, chkd, bknd, bpos, barc, xnar, narc, nari, naro, rlo, rhi, coff, ncol, m, t)
+    #
+    # the separator is already assigned
+    #
+    for k in oneto(s)
+        narrow!(D, ord, xnar, narc, nari, naro, rlo, rhi, h, xtab, tab, k, zero(I))
+    end
+
+    if m == s
+        select!(D, rlo, coff, csel, t)
+        return
+    end
+
+    if R isa Boolean
+        target = sone(R, T)
+    else
+        target = tval[vtab[t] + csel[t] - one(I)]
+    end
+
+    k = s + one(I)
+    fresh = true
+
+    while s < k
+        if fresh
+            fresh = false
+            candidates!(Y, pre, base, typ, D.inst.vtx, ord, h, kind, arg, cur, stop, bknd, bpos, barc, xnar, nari, naro, rlo, rhi, k)
+        end
+
+        if advance!(R, D, Y, pre, typ, woff, wval, ord, kind, arg, cur, stop, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, h, xtab, tab, k)
+            if k < m
+                k += one(I)
+                fresh = true
+            elseif weight(R, D, typ, woff, wval, ord, h, rlo, coff, vtab, tval, s, m, t) == target
+                select!(D, rlo, coff, csel, t)
+                return
+            end
+        else
+            k -= one(I)
+        end
+    end
+
+    return
+end
+
+#
+# Order and plan the bag at node t.
+#
+function prepare!(
+        D::Decomposition{I},
+        ord::AbstractVector{I},
+        pos::AbstractVector{I},
+        bag::AbstractVector{I},
+        xchk::AbstractVector{I},
+        chka::AbstractVector{I},
+        chkp::AbstractVector{I},
+        chkd::AbstractVector{Bool},
+        bknd::AbstractVector{I},
+        bpos::AbstractVector{I},
+        barc::AbstractVector{I},
+        xnar::AbstractVector{I},
+        narc::AbstractVector{I},
+        nari::AbstractVector{I},
+        naro::AbstractVector{I},
+        rlo::AbstractVector{I},
+        rhi::AbstractVector{I},
+        coff::AbstractVector{I},
+        ncol::AbstractVector{I},
+        m::I,
+        t::I,
+    ) where {I}
+    order!(D, ord, pos, bag, t)
+    plan!(D, ord, pos, xchk, chka, chkp, chkd, bknd, bpos, barc, m)
+    plannarrow!(D, pos, xnar, narc, nari, naro, rlo, rhi, coff, ncol, m, t)
+    return
+end
+
+#
+# Assign the next valid candidate to the element at position k: one
+# with nonzero weight, consistent with every edge to an earlier
+# element, and matching the children's tables. Returns false when the
+# candidates are exhausted.
+#
+@inline function advance!(
+        R::AbstractSemiring,
+        D::Decomposition{I},
+        Y::Instance{I},
+        pre::Span{I},
+        typ::Span{I},
+        woff,
+        wval,
+        ord::AbstractVector{I},
+        kind::AbstractVector{I},
+        arg::AbstractVector{I},
+        cur::AbstractVector{I},
+        stop::AbstractVector{I},
+        xchk::AbstractVector{I},
+        chka::AbstractVector{I},
+        chkp::AbstractVector{I},
+        chkd::AbstractVector{Bool},
+        xnar::AbstractVector{I},
+        narc::AbstractVector{I},
+        nari::AbstractVector{I},
+        naro::AbstractVector{I},
+        rlo::AbstractVector{I},
+        rhi::AbstractVector{I},
+        h::AbstractVector{I},
+        xtab::AbstractVector{I},
+        tab::Vector{I},
+        k::I,
+    ) where {I}
+    x = ord[k]
+
+    while cur[k] <= stop[k]
+        y = candidate!(D, pre, tab, xtab, narc, nari, naro, rlo, rhi, kind, arg, cur, stop, k)
+
+        if !ispositive(y)
+            continue
+        end
+
+        if !isnothing(wval)
+            l = woff[x]
+
+            if l < woff[x + one(I)] && wval[l + y - typ.xadj[D.inst.vtx[x]]] == szero(R, eltype(wval))
+                continue
+            end
+        end
+
+        h[x] = y
+
+        if !consistent(Y, ord, h, xchk, chka, chkp, chkd, y, k)
+            continue
+        end
+        #
+        # child tables
+        #
+        if xnar[k] < xnar[k + one(I)]
+            if kind[k] == two(I) + two(I)
+                skip = arg[k]
+            else
+                skip = zero(I)
+            end
+
+            if !narrow!(D, ord, xnar, narc, nari, naro, rlo, rhi, h, xtab, tab, k, skip)
+                continue
+            end
+        end
+
+        return true
+    end
+
+    return false
 end
 
 #
