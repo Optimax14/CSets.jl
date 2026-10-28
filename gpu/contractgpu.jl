@@ -1229,47 +1229,90 @@ algebra(::CSets.Lawvere, ::Type{T}) where {T} = Semiring(typemax(T), zero(T), mi
 algebra(::CSets.Probability, ::Type{T}) where {T} = Semiring(zero(T), one(T), +, *, CUDA.atomic_add!)
 
 #
-# CSets.score(R, W, D, Y) on the GPU: the sum over all homomorphisms
-# of the product of the weights of the images.
+# The height of the tree of D (number of levels - 1).
 #
-function score(R::CSets.AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}; kw...) where {I}
-    return score(R, W, prepare_contract(D), Y; kw...)
+function height(D::Decomposition{I}) where {I}
+    nt = D.tree.nu
+    hgt = zeros(Int, nt)
+
+    for t in oneto(nt), j in D.tree.xadj[t]:D.tree.xadj[t + one(I)] - one(I)
+        hgt[t] = max(hgt[t], hgt[D.tree.adjncy[j]] + 1)
+    end
+
+    return nt > 0 ? hgt[nt] : 0
 end
 
-function score(R::CSets.AbstractSemiring, W, C::ContractPrep{I}, Y::Instance{I}; kw...) where {I}
+#
+# CSets.score(R, W, D, Y) and CSets.color(R, W, D, Y) on the GPU.
+#
+# method = :auto picks the level-synchronous search for shallow trees
+# (fewer than maxlevels levels) and the contraction for deep ones; if
+# the contraction does not fit, the level-synchronous search runs
+# anyway. :levels and :contract force one.
+#
+function solvegpu(R::CSets.AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}, witness::Bool; method=:auto, maxlevels=256, kw...) where {I}
     T = CSets.valtype(R, W)
     alg = algebra(R, T)
-    r = contract(C, Y; alg, weights=W, witness=false, kw...)
 
-    if r === :wide
-        return CSets.score(R, W, C.D, Y)
-    elseif alg isa BoolPacked
-        return convert(T, !iszero(r))
+    if method == :contract || (method == :auto && height(D) >= maxlevels)
+        r = contract(prepare_contract(D), Y; alg, weights=W, witness, withvalue=true, kw...)
+
+        if r !== :wide
+            value, h = witness ? r : (r[1], nothing)
+            value = alg isa BoolPacked ? convert(T, value isa Bool ? value : !iszero(value)) : convert(T, value)
+            return witness && isnothing(h) ? (CSets.szero(R, T), nothing) : (value, h)
+        end
+    end
+
+    P = prepare(D)
+
+    if alg isa BoolPacked
+        h = color(P, Instance{I}[Y]; Ws=Any[W])[1]
+        return isnothing(h) ? (CSets.szero(R, T), nothing) : (CSets.sone(R, T), witness ? h : nothing)
     else
-        return convert(T, r)
+        value, h = color(P, Instance{I}[Y]; S=alg, Ws=Any[W], witness, kw...)[1]
+        return (convert(T, value), h)
     end
 end
 
-#
-# CSets.color(R, W, D, Y) on the GPU: the score and a homomorphism
-# attaining it (or nothing). R must be selective.
-#
+function score(R::CSets.AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}; kw...) where {I}
+    return solvegpu(R, W, D, Y, false; kw...)[1]
+end
+
 function color(R::CSets.AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}; kw...) where {I}
-    return color(R, W, prepare_contract(D), Y; kw...)
+    @assert CSets.isselective(R)
+    return solvegpu(R, W, D, Y, true; kw...)
 end
 
-function color(R::CSets.AbstractSemiring, W, C::ContractPrep{I}, Y::Instance{I}; kw...) where {I}
-    @assert CSets.isselective(R)
-    T = CSets.valtype(R, W)
+#
+# Many targets (and weights) against one decomposition in one
+# level-synchronous pass: a vector of scores, or of (score, h).
+#
+function score(R::CSets.AbstractSemiring, Ws::Vector, D::Decomposition{I}, Ys::Vector{<:Instance{I}}; kw...) where {I}
+    T = CSets.valtype(R, first(Ws))
     alg = algebra(R, T)
-    r = contract(C, Y; alg, weights=W, witness=true, withvalue=true, kw...)
+    P = prepare(D)
 
-    if r === :wide
-        return CSets.color(R, W, C.D, Y)
+    if alg isa BoolPacked
+        hs = color(P, Ys; Ws, kw...)
+        return [convert(T, !isnothing(h)) for h in hs]
+    else
+        return [convert(T, v) for (v, h) in color(P, Ys; S=alg, Ws, witness=false, kw...)]
     end
+end
 
-    value, h = r
-    return isnothing(h) ? (CSets.szero(R, T), nothing) : (convert(T, value), h)
+function color(R::CSets.AbstractSemiring, Ws::Vector, D::Decomposition{I}, Ys::Vector{<:Instance{I}}; kw...) where {I}
+    @assert CSets.isselective(R)
+    T = CSets.valtype(R, first(Ws))
+    alg = algebra(R, T)
+    P = prepare(D)
+
+    if alg isa BoolPacked
+        hs = color(P, Ys; Ws, kw...)
+        return [isnothing(h) ? (CSets.szero(R, T), nothing) : (CSets.sone(R, T), h) for h in hs]
+    else
+        return [(convert(T, v), h) for (v, h) in color(P, Ys; S=alg, Ws, witness=true, kw...)]
+    end
 end
 
 #

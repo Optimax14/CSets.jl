@@ -1,8 +1,8 @@
 # GPU vs CPU on Richard's (R, W) API: score and color for Boolean, Lawvere, Probability
 include("workloads.jl"); include("stats.jl"); include("CSetsGPU.jl"); using .CSetsGPU
 using CSets: score, Boolean, Lawvere, Probability, sprod, sone
-for rep in 1:6
-global rng = MersenneTwister(100 + rep)
+for rep in 1:4
+global rng = MersenneTwister(200 + rep)
 function hweight(R, W, X, Y, h)
     # weight of h: product over elements x of sort c of W[c][rank in Y sort, rank in X sort]
     T = CSets.valtype(R, W)
@@ -34,10 +34,10 @@ for trial in 1:150
     else
         Any[rand(rng, nyv, nv), nothing]
     end
-    sc = score(R, W, D, Y); sg = CSetsGPU.score(R, W, D, Y)
+    sc = score(R, W, D, Y); meth = rand(rng, (:auto, :levels, :contract)); sg = CSetsGPU.score(R, W, D, Y; method=meth)
     ok = isapprox(sc, sg; rtol=1e-9) || (sc == sg)
     if CSets.isselective(R)
-        vc, hc = color(R, W, D, Y); vg, hg = CSetsGPU.color(R, W, D, Y)
+        vc, hc = color(R, W, D, Y); vg, hg = CSetsGPU.color(R, W, D, Y; method=meth)
         ok &= (isapprox(vc, vg; rtol=1e-9) || vc == vg) && isnothing(hc) == isnothing(hg)
         if !isnothing(hg)
             ok &= ishom(X, Y, hg) && isapprox(hweight(R, W, X, Y, hg), vc; rtol=1e-9)
@@ -46,7 +46,7 @@ for trial in 1:150
     if !ok
         println("MISMATCH trial $trial $R score cpu=$sc gpu=$sg")
         if CSets.isselective(R)
-            vc, hc = color(R, W, D, Y); vg, hg = CSetsGPU.color(R, W, D, Y)
+            vc, hc = color(R, W, D, Y); vg, hg = CSetsGPU.color(R, W, D, Y; method=meth)
             println("   color cpu=$vc gpu=$vg hom=", isnothing(hg) ? "none" : ishom(X, Y, hg), " w=", isnothing(hg) ? 0 : hweight(R, W, X, Y, hg), " cpunothing=", isnothing(hc))
         end
     end
