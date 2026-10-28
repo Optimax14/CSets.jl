@@ -395,29 +395,51 @@ function psolve(P::Threaded, R::AbstractSemiring, W, D::Decomposition{I}, Y::Ins
     up, down = levels(D)
     nw = P.ntasks
     wss = [TaskWorkspace(D, V, !isnothing(wgt), witness) for _ in 1:nw]
+    boolean = R isa Boolean
     #
-    # all tables, in the order the levels are solved
+    # the table of node t: keys tkey[t], values tval[t], back-pointers
+    # tfac[t]. Before a level is solved, the tables of the children of
+    # its nodes are moved into one array (the arena), where xtab and
+    # vtab point, and freed.
     #
+    tkey = Vector{Vector{I}}(undef, nt)
+    tval = Vector{Vector{V}}(undef, nt)
+    tfac = Vector{Vector{I}}(undef, witness ? nt : 0)
     xtab = FVector{I}(undef, nt)
     vtab = FVector{I}(undef, nt)
     ncol = FVector{I}(undef, nt)
-    tab  = Vector{I}(undef, 1024)
-    tval = Vector{V}(undef, 1024)
-    ntab = zero(I)
-    nval = zero(I)
-
-    if witness
-        xfac = FVector{I}(undef, nt)
-        fac = Vector{I}(undef, 1024)
-    else
-        xfac = fac = nothing
-    end
-
-    nfac = zero(I)
-    boolean = R isa Boolean
+    akey = Vector{I}(undef, 1024)
+    aval = Vector{V}(undef, 1024)
 
     for l in oneto(up.nu)
         nodes = view(up.adjncy, up.xadj[l]:up.xadj[l + one(I)] - one(I))
+        #
+        # the arena
+        #
+        nk = zero(I)
+        nv = zero(I)
+
+        for t in nodes, j in D.tree.xadj[t]:D.tree.xadj[t + one(I)] - one(I)
+            c = D.tree.adjncy[j]
+            nk += length(tkey[c])
+            nv += length(tval[c])
+        end
+
+        length(akey) < nk && resize!(akey, max(nk, 2 * length(akey)))
+        length(aval) < nv && resize!(aval, max(nv, 2 * length(aval)))
+        nk = nv = zero(I)
+
+        for t in nodes, j in D.tree.xadj[t]:D.tree.xadj[t + one(I)] - one(I)
+            c = D.tree.adjncy[j]
+            copyto!(akey, nk + one(I), tkey[c], 1, length(tkey[c]))
+            copyto!(aval, nv + one(I), tval[c], 1, length(tval[c]))
+            xtab[c] = nk + one(I)
+            vtab[c] = nv + one(I)
+            nk += length(tkey[c])
+            nv += length(tval[c])
+            tkey[c] = I[]
+            tval[c] = V[]
+        end
         #
         # the work of the level: the column counts of the children (for
         # a leaf, the number of assignments of its separator)
@@ -427,82 +449,64 @@ function psolve(P::Threaded, R::AbstractSemiring, W, D::Decomposition{I}, Y::Ins
 
         if nw == 1 || work < P.minwork
             pcs = [Piece{I}(t, zero(I), zero(I), zero(I), zero(I), zero(I), 1, zero(I), zero(I), zero(I), zero(I), zero(I)) for t in nodes]
-            solvechunk!(R, D, Y, pre, base, typ, xwgt, wgt, xtab, vtab, ncol, tab, tval, wss[1], pcs, 1, Threads.Atomic{Int}(1))
+            solvechunk!(R, D, Y, pre, base, typ, xwgt, wgt, xtab, vtab, ncol, akey, aval, wss[1], pcs, 1, Threads.Atomic{Int}(1))
         else
             pcs = pieces(P, D, typ, nodes, ncol)
-            #
-            # pieces in order, contiguous runs per task
-            #
-            np = length(pcs)
-            nk = min(nw, np)
-
             next = Threads.Atomic{Int}(1)
 
-            @sync for k in 1:nk
-                Threads.@spawn solvechunk!(R, D, Y, pre, base, typ, xwgt, wgt, xtab, vtab, ncol, tab, tval, wss[k], pcs, k, next)
+            @sync for k in 1:min(nw, length(pcs))
+                Threads.@spawn solvechunk!(R, D, Y, pre, base, typ, xwgt, wgt, xtab, vtab, ncol, akey, aval, wss[k], pcs, k, next)
             end
         end
         #
-        # concatenate the pieces of each node, in order
+        # the table of each node: its pieces, in order
         #
         i = 1
 
         while i <= length(pcs)
             t = pcs[i].t
             s = D.sep.xadj[t + one(I)] - D.sep.xadj[t]
-            xtab[t] = ntab + one(I)
-            vtab[t] = nval + one(I)
-            n = zero(I)
+            j = i
+            n = nf = zero(I)
 
-            if witness
-                xfac[t] = nfac
+            while j <= length(pcs) && pcs[j].t == t
+                n += pcs[j].n
+                nf += pcs[j].nf
+                j += 1
             end
 
-            while i <= length(pcs) && pcs[i].t == t
-                pc = pcs[i]
+            iszero(n) && return szero(R, V), nothing
+            ncol[t] = n
+            key = tkey[t] = Vector{I}(undef, n * s)
+            val = tval[t] = Vector{V}(undef, boolean ? 0 : n)
+            witness && (tfac[t] = Vector{I}(undef, nf))
+            ko = vo = fo = 0
+
+            for q in i:j - 1
+                pc = pcs[q]
                 ws = wss[pc.task]
-
-                if length(tab) < ntab + pc.n * s
-                    resize!(tab, max(2 * length(tab), ntab + pc.n * s))
-                end
-
-                copyto!(tab, ntab + one(I), ws.okey, pc.ko + one(I), pc.n * s)
-                ntab += pc.n * s
+                copyto!(key, ko + 1, ws.okey, pc.ko + one(I), pc.n * s)
+                ko += pc.n * s
 
                 if !boolean
-                    if length(tval) < nval + pc.n
-                        resize!(tval, max(2 * length(tval), nval + pc.n))
-                    end
-
-                    copyto!(tval, nval + one(I), ws.oval, pc.vo + one(I), pc.n)
-                    nval += pc.n
+                    copyto!(val, vo + 1, ws.oval, pc.vo + one(I), pc.n)
+                    vo += pc.n
                 end
 
                 if witness
-                    if length(fac) < nfac + pc.nf
-                        resize!(fac, max(2 * length(fac), nfac + pc.nf))
-                    end
-
-                    copyto!(fac, nfac + one(I), ws.ofac, pc.fo + one(I), pc.nf)
-                    nfac += pc.nf
+                    copyto!(tfac[t], fo + 1, ws.ofac, pc.fo + one(I), pc.nf)
+                    fo += pc.nf
                 end
-
-                n += pc.n
-                i += 1
             end
 
-            ncol[t] = n
-
-            if iszero(n)
-                return szero(R, V), nothing
-            end
+            i = j
         end
     end
 
     if boolean
         value = sone(R, V)
     else
-        value = tval[vtab[nt]]
+        value = tval[nt][1]
     end
 
     if !witness
@@ -520,7 +524,7 @@ function psolve(P::Threaded, R::AbstractSemiring, W, D::Decomposition{I}, Y::Ins
         nk = length(nodes) < 64 ? 1 : min(nw, length(nodes))
 
         @sync for k in 1:nk
-            Threads.@spawn liftchunk!(D, h, ncol, fac, xfac, wss[k], nodes, fld((k - 1) * length(nodes), nk) + 1:fld(k * length(nodes), nk))
+            Threads.@spawn liftchunk!(D, h, ncol, tfac, wss[k], nodes, fld((k - 1) * length(nodes), nk) + 1:fld(k * length(nodes), nk))
         end
     end
 
@@ -558,15 +562,15 @@ function solvechunk!(R, D::Decomposition{I}, Y, pre, base, typ, xwgt, wgt, xtab,
     return
 end
 
-function liftchunk!(D::Decomposition{I}, h, ncol, fac, xfac, ws::TaskWorkspace{I}, nodes, range) where {I}
+function liftchunk!(D::Decomposition{I}, h, ncol, tfac, ws::TaskWorkspace{I}, nodes, range) where {I}
     for i in range
-        lift(D, h, ncol, fac, xfac, ws, nodes[i])
+        lift(D, h, ncol, tfac, ws, nodes[i])
     end
 
     return
 end
 
-function lift(D::Decomposition{I}, h, ncol, fac, xfac, ws::TaskWorkspace{I}, t::I) where {I}
+function lift(D::Decomposition{I}, h, ncol, tfac, ws::TaskWorkspace{I}, t::I) where {I}
     C = restrict!(D, ws.pos, ws.xadj, ws.adjncy, ws.vtx, ws.arc, ws.sxadj, ws.sadjncy, t)
     nr = C.nr
     rstrt = D.res.xadj[t]
@@ -577,7 +581,7 @@ function lift(D::Decomposition{I}, h, ncol, fac, xfac, ws::TaskWorkspace{I}, t::
         ws.hloc[x] = h[D.sep.adjncy[sstrt + x - nr - one(I)]]
     end
 
-    lift!(C, fac, xfac[t], ws.hloc, ncol[t], ws.sel)
+    lift!(C, tfac[t], zero(I), ws.hloc, ncol[t], ws.sel)
 
     for x in oneto(nr)
         h[rstrt + x - one(I)] = ws.hloc[x]
