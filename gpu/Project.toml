@@ -7,3 +7,6 @@ CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 CliqueTrees = "60701a23-6482-424a-84db-faee86b9b1f8"
 FixedSizeArrays = "3821ddf9-e5b5-40d5-8e25-6813ab96b5e2"
 Metis = "2679e427-3c69-5b7f-982b-ece356f1e94b"
+
+[sources]
+CSets = {path = ".."}
