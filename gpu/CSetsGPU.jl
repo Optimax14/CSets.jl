@@ -592,7 +592,7 @@ function searchkernel!(P, Y, tab, xtab, ncol, h, ibag, idep, ipre, W, nitem, nex
                     end
                 elseif S === nothing || m == s || mode == J(1)
                     emit!(rkey, rdep, rval, cap, cnt, ncol, ipre, W, i, seq, tq, E, E, scr, nthr, tid, HP, false, rvv,
-                        fullval(S, P, Y, scr, nthr, tid, HP, RLO, wo, wv, woq, yo, po, s, m, t, cval, xval, qo))
+                        mode == zero(J) ? fullval(S, P, Y, scr, nthr, tid, HP, RLO, wo, wv, woq, yo, po, s, m, t, cval, xval, qo) : sone_(S))
                     seq += one_
 
                     if iszero(E)
