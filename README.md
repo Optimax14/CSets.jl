@@ -27,9 +27,9 @@ A 200-bit miter, one column per bit. The counterexample is the red needle in the
 
 | bits | gates | equivalent | buggy |
 |---:|---:|---:|---:|
-| 64 | 800 | 0.003 s | 0.003 s |
-| 1,000 | 12,000 | 0.08 s | 0.13 s |
-| 10,000 | 125,000 | 0.71 s | 0.71 s |
+| 64 | 800 | 0.003 s | 0.004 s |
+| 1,000 | 12,000 | 0.06 s | 0.06 s |
+| 10,000 | 125,000 | 0.67 s | 0.69 s |
 
 No counterexample means the circuits are equivalent: the search is exhaustive.
 

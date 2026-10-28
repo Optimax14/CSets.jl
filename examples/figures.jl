@@ -48,7 +48,7 @@ function dot(n, j; big=false)
 
     for k in c.kind
         push!(off, p)
-        p += k == ONE ? 1 : 3
+        p += 3
     end
 
     #
@@ -64,7 +64,7 @@ function dot(n, j; big=false)
     end
 
     for (g, k) in enumerate(c.kind)
-        k == ONE || (src[c.wires[off[g] + 2]] = "g$g")
+        src[c.wires[off[g] + 2]] = "g$g"
     end
 
     hot = Set(w for i in eachindex(x) for w in (x[i], y[i]) if v[x[i]] != v[y[i]])
@@ -96,7 +96,6 @@ function dot(n, j; big=false)
 
         for g in range
             k = c.kind[g]
-            k == ONE && continue
             color = g == bug || g in hotgate ? RED : INK
             width = g == bug || g in hotgate ? 2.0 : 0.9
 
@@ -114,9 +113,13 @@ function dot(n, j; big=false)
     gates(io, right, "right", "buggy adder", "R", "b")
     gates(io, comp, "comp", "differ?", "")
 
+    for w in c.pins
+        println(io, "  $(src[w]) -> one;")
+    end
+
     for (g, k) in enumerate(c.kind)
-        ins = k == ONE ? (c.wires[off[g]],) : (c.wires[off[g]], c.wires[off[g] + 1])
-        dst = k == ONE ? "one" : "g$g"
+        ins = (c.wires[off[g]], c.wires[off[g] + 1])
+        dst = "g$g"
 
         for w in ins
             style = w in hot ? "color=\"$RED\", penwidth=$(big ? 3.0 : 2.0)" :
@@ -157,7 +160,7 @@ function strip(n, j; dx=5.0, dy=9.0)
 
     for k in c.kind
         push!(off, p)
-        p += k == ONE ? 1 : 3
+        p += 3
     end
     #
     # position of each gate: an adder builds 2 gates for bit 1 and 5 for
@@ -188,7 +191,7 @@ function strip(n, j; dx=5.0, dy=9.0)
     src = Dict{Int, Int}()
 
     for (h, k) in enumerate(c.kind)
-        k == ONE || (src[c.wires[off[h] + 2]] = h)
+        src[c.wires[off[h] + 2]] = h
     end
 
     for i in 1:n
@@ -206,7 +209,6 @@ function strip(n, j; dx=5.0, dy=9.0)
     println(io, "  edge [color=\"$INK\", penwidth=0.18];")
 
     for (h, k) in enumerate(c.kind)
-        k == ONE && continue
         red = h == bug || h in hotgate
         attrs = red ? ", width=0.07, color=\"$RED\"" : ""
         println(io, "  g$h [pos=$(xy(pos[h]))$attrs];")
@@ -214,7 +216,6 @@ function strip(n, j; dx=5.0, dy=9.0)
 
 
     for (h, k) in enumerate(c.kind)
-        k == ONE && continue
 
         for w in (c.wires[off[h]], c.wires[off[h] + 1])
             haskey(src, w) || continue

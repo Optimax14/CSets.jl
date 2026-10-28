@@ -18,6 +18,7 @@ function ispositive(x)
 end
 
 include("span.jl")
+include("semiring.jl")
 include("partial_map.jl")
 include("instance.jl")
 include("decomposition.jl")

@@ -1,9 +1,74 @@
-function color(X::Instance{I}, S::Span{I}, Y::Instance{I}; kw...) where {I}
+#
+# The weights W are either nothing or a vector with one entry per sort
+# c: either nothing (every image has weight 1) or a matrix of size
+# |Y(c)| x |X(c)| whose entry (i, j) is the weight of mapping the j-th
+# element of X of sort c to the i-th element of Y of sort c, both in
+# the caller's numbering. A weight of 0 forbids the image.
+#
+# The weight of a homomorphism is the product of the weights of its
+# images, and score computes the sum of the weights of all
+# homomorphisms X -> Y.
+#
+function score(R::AbstractSemiring, W, X::Instance{I}, S::Span{I}, Y::Instance{I}; kw...) where {I}
     D = decomposition(X, S; kw...)
-    return color(D, Y)
+    return score(R, W, D, Y)
+end
+
+function score(R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}) where {I}
+    value, h = search(R, W, D, Y, false, valtype(R, W))
+    return value
+end
+
+#
+# Find the score and a homomorphism attaining it, or nothing if the
+# score is 0. The semiring must be selective.
+#
+function color(R::AbstractSemiring, W, X::Instance{I}, S::Span{I}, Y::Instance{I}; kw...) where {I}
+    D = decomposition(X, S; kw...)
+    return color(R, W, D, Y)
+end
+
+function color(R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}) where {I}
+    @assert isselective(R)
+    return search(R, W, D, Y, true, valtype(R, W))
+end
+
+#
+# Find a homomorphism X -> Y, or nothing.
+#
+function color(W, X::Instance{I}, S::Span{I}, Y::Instance{I}; kw...) where {I}
+    value, h = color(Boolean(), W, X, S, Y; kw...)
+    return h
+end
+
+function color(X::Instance{I}, S::Span{I}, Y::Instance{I}; kw...) where {I}
+    return color(nothing, X, S, Y; kw...)
+end
+
+function color(W, D::Decomposition{I}, Y::Instance{I}) where {I}
+    value, h = color(Boolean(), W, D, Y)
+    return h
 end
 
 function color(D::Decomposition{I}, Y::Instance{I}) where {I}
+    return color(nothing, D, Y)
+end
+
+#
+# The type of the weights: the element type of the first weight
+# matrix, or the default for the semiring.
+#
+function valtype(R::AbstractSemiring, W)
+    if !isnothing(W)
+        for M in W
+            isnothing(M) || return eltype(M)
+        end
+    end
+
+    return valtype(R)
+end
+
+function search(R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}, witness::Bool, ::Type{T}) where {I, T}
     Y, yord = normalize(Y)
     X = D.inst
     nu = X.dom.nu
@@ -77,6 +142,12 @@ function color(D::Decomposition{I}, Y::Instance{I}) where {I}
     tab  = Vector{I}(undef, 1024)
     ntab = FScalar{I}(undef)
     ntab[] = zero(I)
+    vtab = FVector{I}(undef, nt)
+    tval = Vector{T}(undef, 1024)
+    nval = FScalar{I}(undef)
+    nval[] = zero(I)
+    coff = FVector{I}(undef, max(D.tree.ne, one(I)))
+    csel = FVector{I}(undef, nt)
 
     for x in oneto(nu)
         bag[x] = zero(I)
@@ -114,15 +185,87 @@ function color(D::Decomposition{I}, Y::Instance{I}) where {I}
     for p in oneto(nf)
         pre.adjncy[p] = ysrc[pre.adjncy[p]]
     end
+    #
+    # Relabel the weights: element r of X gets the column
+    #
+    #    wval[woff[r]] ... wval[woff[r + 1] - 1]
+    #
+    # indexed by the elements of Y of its sort, or an empty column if
+    # every image is allowed.
+    #
+    ns = X.cod.nu
+    torg = FVector{I}(undef, nu)
+    rank = FVector{I}(undef, nu)
+    nsrt = FVector{I}(undef, ns)
+    woff = FVector{I}(undef, nu + one(I))
 
-    for t in oneto(nt)
-        if !bagsearch!(D, Y, pre, base, typ, ord, kind, arg, cur, stop, bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, pos, bag, h, xtab, ncol, tab, ntab, t, true)
-            return
+    for r in oneto(nu)
+        torg[D.res.adjncy[r]] = X.vtx[r]
+    end
+
+    for c in oneto(ns)
+        nsrt[c] = zero(I)
+    end
+
+    for v in oneto(nu)
+        c = torg[v]
+        nsrt[c] += one(I)
+        rank[v] = nsrt[c]
+    end
+
+    woff[one(I)] = one(I)
+
+    for r in oneto(nu)
+        c = X.vtx[r]
+
+        if isnothing(W) || isnothing(W[c])
+            woff[r + one(I)] = woff[r]
+        else
+            woff[r + one(I)] = woff[r] + typ.xadj[c + one(I)] - typ.xadj[c]
         end
     end
 
+    wval = FVector{T}(undef, woff[nu + one(I)] - one(I))
+    weighted = Val(woff[nu + one(I)] > one(I))
+
+    for r in oneto(nu)
+        c = X.vtx[r]
+        l = woff[r]
+
+        if l < woff[r + one(I)]
+            M = W[c]
+            j = rank[D.res.adjncy[r]]
+
+            for i in oneto(woff[r + one(I)] - l)
+                wval[l + i - one(I)] = M[i, j]
+            end
+        end
+    end
+
+    for t in oneto(nt)
+        if !bagsearch!(R, D, Y, pre, base, typ, woff, wval, weighted, ord, kind, arg, cur, stop, bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, pos, bag, h, xtab, ncol, tab, ntab, vtab, tval, nval, coff, csel, t, true)
+            return szero(R, T), nothing
+        end
+    end
+
+    #
+    # in the Boolean semiring every stored entry has value 1, so values
+    # are not stored
+    #
+    if R isa Boolean
+        value = sone(R, T)
+    else
+        value = tval[vtab[nt]]
+    end
+
+    if !witness
+        return value, nothing
+    end
+
+    csel[nt] = one(I)
+
     for t in nt:-one(I):one(I)
-        bagsearch!(D, Y, pre, base, typ, ord, kind, arg, cur, stop, bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, pos, bag, h, xtab, ncol, tab, ntab, t, false)
+        bagsearch!(R, D, Y, pre, base, typ, woff, wval, weighted, ord, kind, arg, cur, stop, bknd, bpos, barc, xchk, chka, chkp, chkd, xnar, narc, nari, naro, rlo, rhi, pos, bag, h, xtab, ncol, tab, ntab, vtab, tval, nval, coff, csel, t, false)
     end
 
     out = FVector{I}(undef, nu)
@@ -131,7 +274,7 @@ function color(D::Decomposition{I}, Y::Instance{I}) where {I}
         out[D.res.adjncy[r]] = yord[h[r]]
     end
 
-    return out
+    return value, out
 end
 
 #
@@ -174,11 +317,15 @@ function image(Y::Instance{I}, y::I, a::I) where {I}
 end
 
 function bagsearch!(
+        R::AbstractSemiring,
         D::Decomposition{I},
         Y::Instance{I},
         pre::Span{I},
         base::AbstractVector{I},
         typ::Span{I},
+        woff::AbstractVector{I},
+        wval::AbstractVector{T},
+        ::Val{weighted},
         ord::AbstractVector{I},
         kind::AbstractVector{I},
         arg::AbstractVector{I},
@@ -204,9 +351,14 @@ function bagsearch!(
         ncol::AbstractVector{I},
         tab::Vector{I},
         ntab::FScalar{I},
+        vtab::AbstractVector{I},
+        tval::Vector{T},
+        nval::FScalar{I},
+        coff::AbstractVector{I},
+        csel::AbstractVector{I},
         t::I,
         forward::Bool,
-    ) where {I}
+    ) where {I, T, weighted}
     X = D.inst
     rstrt = D.res.xadj[t]
     rstop = D.res.xadj[t + one(I)] - one(I)
@@ -365,6 +517,7 @@ function bagsearch!(
         pstop = D.sep.xadj[c + one(I)] - one(I)
         rlo[o] = one(I)
         rhi[o] = ncol[c]
+        coff[j] = o
         i = zero(I)
 
         for p in reverse(pstrt:pstop)
@@ -382,6 +535,7 @@ function bagsearch!(
 
     if forward
         xtab[t] = ntab[] + one(I)
+        vtab[t] = nval[] + one(I)
         ncol[t] = zero(I)
     end
 
@@ -391,16 +545,35 @@ function bagsearch!(
         kmin = s + one(I)
     end
 
-    if m < kmin
-        if forward
-            ncol[t] = one(I)
-        end
-
-        return true
-    end
-
     for k in oneto(kmin - one(I))
         narrow!(D, ord, xnar, narc, nari, naro, rlo, rhi, h, xtab, tab, k, zero(I))
+    end
+
+    if m < kmin
+        if forward
+            w = weight(R, D, typ, woff, wval, Val(weighted), ord, h, rlo, coff, vtab, tval, s, m, t)
+
+            if w != szero(R, T)
+                record!(R, tab, ntab, tval, nval, ncol, h, ord, s, t, w)
+            end
+
+            return ispositive(ncol[t])
+        else
+            select!(D, rlo, coff, csel, t)
+            return true
+        end
+    end
+    #
+    # In the forward pass, acc sums the weights of the completions of
+    # the current separator assignment. In the backward pass, target is
+    # the weight of the entry chosen by the parent.
+    #
+    acc = szero(R, T)
+
+    if forward || R isa Boolean
+        target = sone(R, T)
+    else
+        target = tval[vtab[t] + csel[t] - one(I)]
     end
 
     k = kmin
@@ -512,6 +685,14 @@ function bagsearch!(
                 continue
             end
 
+            if weighted
+                l = woff[x]
+
+                if l < woff[x + one(I)] && wval[l + y - typ.xadj[X.vtx[x]]] == szero(R, T)
+                    continue
+                end
+            end
+
             h[x] = y
             valid = true
             #
@@ -556,38 +737,164 @@ function bagsearch!(
             if k < m
                 k += one(I)
                 fresh = true
-            elseif forward
-                #
-                # append the column, growing tab geometrically
-                #
-                n = ntab[]
+            else
+                w = weight(R, D, typ, woff, wval, Val(weighted), ord, h, rlo, coff, vtab, tval, s, m, t)
 
-                if length(tab) < n + s
-                    resize!(tab, max(2 * length(tab), n + s))
-                end
+                if forward
+                    acc = splus(R, acc, w)
+                    #
+                    # the separator assignment is finished when there is
+                    # no residual, or when the sum can no longer change
+                    #
+                    if k == s || (isintegral(R) && acc == sone(R, T))
+                        if acc != szero(R, T)
+                            record!(R, tab, ntab, tval, nval, ncol, h, ord, s, t, acc)
+                        end
 
-                for i in oneto(s)
-                    tab[n + i] = h[ord[i]]
-                end
+                        acc = szero(R, T)
 
-                ntab[] = n + s
+                        if iszero(s)
+                            return true
+                        end
 
-                ncol[t] += one(I)
-
-                if iszero(s)
+                        k = s
+                    end
+                elseif w == target
+                    select!(D, rlo, coff, csel, t)
                     return true
                 end
-
-                k = s
-            else
-                return true
             end
         else
             k -= one(I)
+            #
+            # leaving the residual: the separator assignment is finished
+            #
+            if forward && k == s && s < m
+                if acc != szero(R, T)
+                    record!(R, tab, ntab, tval, nval, ncol, h, ord, s, t, acc)
+                end
+
+                acc = szero(R, T)
+            end
         end
     end
 
     return forward && ispositive(ncol[t])
+end
+
+#
+# The weight of a complete assignment of the bag at node t: the
+# product of the weights of the residual elements and of the matched
+# entries of the children's tables.
+#
+function weight(
+        R::AbstractSemiring,
+        D::Decomposition{I},
+        typ::Span{I},
+        woff::AbstractVector{I},
+        wval::AbstractVector{T},
+        ::Val{weighted},
+        ord::AbstractVector{I},
+        h::AbstractVector{I},
+        rlo::AbstractVector{I},
+        coff::AbstractVector{I},
+        vtab::AbstractVector{I},
+        tval::Vector{T},
+        s::I,
+        m::I,
+        t::I,
+    ) where {I, T, weighted}
+    w = sone(R, T)
+    #
+    # in the Boolean semiring, zero weights are never chosen, so every
+    # complete assignment has weight 1
+    #
+    if R isa Boolean
+        return w
+    end
+
+    if weighted
+        for k in s + one(I):m
+            x = ord[k]
+            l = woff[x]
+
+            if l < woff[x + one(I)]
+                w = sprod(R, w, wval[l + h[x] - typ.xadj[D.inst.vtx[x]]])
+            end
+        end
+    end
+
+    cstrt = D.tree.xadj[t]
+    cstop = D.tree.xadj[t + one(I)] - one(I)
+
+    for j in cstrt:cstop
+        c = D.tree.adjncy[j]
+        n = D.sep.xadj[c + one(I)] - D.sep.xadj[c]
+        w = sprod(R, w, tval[vtab[c] + rlo[coff[j] + n] - one(I)])
+    end
+
+    return w
+end
+
+#
+# Append a column to the table of node t: the separator assignment and
+# its value. The tables grow geometrically.
+#
+function record!(
+        R::AbstractSemiring,
+        tab::Vector{I},
+        ntab::FScalar{I},
+        tval::Vector{T},
+        nval::FScalar{I},
+        ncol::AbstractVector{I},
+        h::AbstractVector{I},
+        ord::AbstractVector{I},
+        s::I,
+        t::I,
+        value::T,
+    ) where {I, T}
+    n = ntab[]
+
+    if length(tab) < n + s
+        resize!(tab, max(2 * length(tab), n + s))
+    end
+
+    for i in oneto(s)
+        tab[n + i] = h[ord[i]]
+    end
+
+    ntab[] = n + s
+    ncol[t] += one(I)
+
+    if !(R isa Boolean)
+        n = nval[]
+
+        if length(tval) < n + one(I)
+            resize!(tval, 2 * length(tval))
+        end
+
+        tval[n + one(I)] = value
+        nval[] = n + one(I)
+    end
+
+    return
+end
+
+#
+# Record, for each child of node t, the column of its table matched by
+# the current assignment.
+#
+function select!(D::Decomposition{I}, rlo::AbstractVector{I}, coff::AbstractVector{I}, csel::AbstractVector{I}, t::I) where {I}
+    cstrt = D.tree.xadj[t]
+    cstop = D.tree.xadj[t + one(I)] - one(I)
+
+    for j in cstrt:cstop
+        c = D.tree.adjncy[j]
+        n = D.sep.xadj[c + one(I)] - D.sep.xadj[c]
+        csel[c] = rlo[coff[j] + n]
+    end
+
+    return
 end
 
 #

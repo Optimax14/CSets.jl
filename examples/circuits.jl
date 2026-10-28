@@ -9,8 +9,9 @@
 #
 # To compare two circuits, build their miter: share the inputs, XOR
 # corresponding outputs, OR the results together, and pin that wire to
-# 1 with a gate of sort One. A homomorphism is then an input on which
-# the circuits differ; if there is none, they are equivalent.
+# 1 with a list (its only allowed image is 1). A homomorphism is then
+# an input on which the circuits differ; if there is none, they are
+# equivalent.
 #
 using CSets: FVector, Span, Instance, saturate, color
 using CliqueTrees: MF
@@ -19,25 +20,24 @@ const WIRE = 1
 const AND  = 2
 const OR   = 3
 const XOR  = 4
-const ONE  = 5
 
 #
-# The schema: AND, OR, and XOR each have arcs in1, in2, out to Wire,
-# and One has a single arc to Wire.
+# The schema: AND, OR, and XOR each have arcs in1, in2, out to Wire.
 #
 function schema()
-    xadj = FVector{Int}([1, 1, 4, 7, 10, 11])
-    adjncy = FVector{Int}(fill(WIRE, 10))
-    return Span{Int}(5, 5, 10, xadj, adjncy)
+    xadj = FVector{Int}([1, 1, 4, 7, 10])
+    adjncy = FVector{Int}(fill(WIRE, 9))
+    return Span{Int}(4, 4, 9, xadj, adjncy)
 end
 
 mutable struct Circuit
     nwire::Int
     kind::Vector{Int}    # sort of each gate
-    wires::Vector{Int}   # in1, in2, out of each gate (out only for One)
+    wires::Vector{Int}   # in1, in2, out of each gate
+    pins::Vector{Int}    # wires pinned to 1
 end
 
-Circuit() = Circuit(0, Int[], Int[])
+Circuit() = Circuit(0, Int[], Int[], Int[])
 
 function wire!(c::Circuit)
     c.nwire += 1
@@ -51,8 +51,7 @@ function gate!(c::Circuit, kind::Int, a::Int, b::Int, out::Int=wire!(c))
 end
 
 function pin!(c::Circuit, w::Int)
-    push!(c.kind, ONE)
-    push!(c.wires, w)
+    push!(c.pins, w)
     return w
 end
 
@@ -72,14 +71,9 @@ function instance(c::Circuit)
         x = c.nwire + g
         vtx[x] = k
 
-        if k == ONE
-            push!(adjncy, c.wires[p]); push!(arc, 10)
+        for i in 1:3
+            push!(adjncy, c.wires[p]); push!(arc, 3 * (k - AND) + i)
             p += 1
-        else
-            for i in 1:3
-                push!(adjncy, c.wires[p]); push!(arc, 3 * (k - AND) + i)
-                p += 1
-            end
         end
 
         xadj[x + 1] = length(adjncy) + 1
@@ -105,7 +99,6 @@ function boolean()
         gate!(c, XOR, v[a+1], v[b+1], v[(a ⊻ b) + 1])
     end
 
-    pin!(c, t)
     return c
 end
 
@@ -198,7 +191,17 @@ end
 #
 function counterexample(c::Circuit; kw...)
     X = instance(c)
-    h = color(X, support(X), instance(boolean()); alg=MF(), kw...)
+    #
+    # every wire may be 0 or 1, except pinned wires, which must be 1
+    #
+    L = trues(2, c.nwire)
+
+    for w in c.pins
+        L[1, w] = false
+    end
+
+    W = [L, nothing, nothing, nothing]
+    h = color(W, X, support(X), instance(boolean()); alg=MF(), kw...)
     return isnothing(h) ? nothing : [h[w] - 1 for w in 1:c.nwire]
 end
 
