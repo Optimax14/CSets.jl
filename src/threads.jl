@@ -223,14 +223,18 @@ end
 function pieces(P::Threaded, D::Decomposition{I}, typ::Span{I}, nodes, ncol) where {I}
     out = Piece{I}[]
     X = D.inst
-    nn = length(nodes)
-    want = 4 * P.ntasks
+    want = 8 * P.ntasks
+    est = estimates(D, typ, nodes, ncol)
+    total = max(sum(est; init=0), 1)
 
-    for t in nodes
+    for (i, t) in enumerate(nodes)
         sstrt = D.sep.xadj[t]
         sstop = D.sep.xadj[t + one(I)] - one(I)
         s = sstop - sstrt + one(I)
-        np = nn >= want ? 1 : cld(want, nn)
+        #
+        # a node gets pieces in proportion to its share of the work
+        #
+        np = clamp(cld(want * est[i], total), 1, want)
 
         if np == 1 || s < one(I)
             push!(out, Piece{I}(t, zero(I), zero(I), zero(I), zero(I), zero(I), 0, zero(I), zero(I), zero(I), zero(I), zero(I)))
@@ -275,6 +279,37 @@ function pieces(P::Threaded, D::Decomposition{I}, typ::Span{I}, nodes, ncol) whe
     end
 
     return out
+end
+
+#
+# The estimated work of each node: the column counts of its children,
+# or for a leaf the number of assignments of its separator.
+#
+function estimates(D::Decomposition{I}, typ::Span{I}, nodes, ncol) where {I}
+    X = D.inst
+    est = zeros(Int, length(nodes))
+
+    for (i, t) in enumerate(nodes)
+        cstrt = D.tree.xadj[t]
+        cstop = D.tree.xadj[t + one(I)] - one(I)
+
+        if cstrt <= cstop
+            for j in cstrt:cstop
+                est[i] += ncol[D.tree.adjncy[j]]
+            end
+        else
+            w = 1
+
+            for p in D.sep.xadj[t]:D.sep.xadj[t + one(I)] - one(I)
+                u = X.vtx[D.sep.adjncy[p]]
+                w = min(w * (typ.xadj[u + one(I)] - typ.xadj[u]), 1 << 40)
+            end
+
+            est[i] = w
+        end
+    end
+
+    return est
 end
 
 #
@@ -363,17 +398,15 @@ function psolve(P::Threaded, R::AbstractSemiring, W, D::Decomposition{I}, Y::Ins
     for l in oneto(up.nu)
         nodes = view(up.adjncy, up.xadj[l]:up.xadj[l + one(I)] - one(I))
         #
-        # the work of the level: the column counts of the children
+        # the work of the level: the column counts of the children (for
+        # a leaf, the number of assignments of its separator)
         #
-        work = 0
-
-        for t in nodes, j in D.tree.xadj[t]:D.tree.xadj[t + one(I)] - one(I)
-            work += ncol[D.tree.adjncy[j]]
-        end
+        est = estimates(D, typ, nodes, ncol)
+        work = sum(est; init=0)
 
         if nw == 1 || work < P.minwork
             pcs = [Piece{I}(t, zero(I), zero(I), zero(I), zero(I), zero(I), 1, zero(I), zero(I), zero(I), zero(I), zero(I)) for t in nodes]
-            solvechunk!(R, D, Y, pre, base, typ, xwgt, wgt, xtab, vtab, ncol, tab, tval, wss[1], pcs, 1, 1:length(pcs))
+            solvechunk!(R, D, Y, pre, base, typ, xwgt, wgt, xtab, vtab, ncol, tab, tval, wss[1], pcs, 1, Threads.Atomic{Int}(1))
         else
             pcs = pieces(P, D, typ, nodes, ncol)
             #
@@ -382,8 +415,10 @@ function psolve(P::Threaded, R::AbstractSemiring, W, D::Decomposition{I}, Y::Ins
             np = length(pcs)
             nk = min(nw, np)
 
+            next = Threads.Atomic{Int}(1)
+
             @sync for k in 1:nk
-                Threads.@spawn solvechunk!(R, D, Y, pre, base, typ, xwgt, wgt, xtab, vtab, ncol, tab, tval, wss[k], pcs, k, fld((k - 1) * np, nk) + 1:fld(k * np, nk))
+                Threads.@spawn solvechunk!(R, D, Y, pre, base, typ, xwgt, wgt, xtab, vtab, ncol, tab, tval, wss[k], pcs, k, next)
             end
         end
         #
@@ -478,13 +513,15 @@ function psolve(P::Threaded, R::AbstractSemiring, W, D::Decomposition{I}, Y::Ins
 end
 
 #
-# Solve the pieces in range with the workspace of task k, writing one
-# after the other to its buffers.
+# Solve pieces, taking the next one in turn, with the workspace of task
+# k, writing one after the other to its buffers.
 #
-function solvechunk!(R, D::Decomposition{I}, Y, pre, base, typ, xwgt, wgt, xtab, vtab, ncol, tab, tval, ws::TaskWorkspace{I}, pcs, k::Int, range) where {I}
+function solvechunk!(R, D::Decomposition{I}, Y, pre, base, typ, xwgt, wgt, xtab, vtab, ncol, tab, tval, ws::TaskWorkspace{I}, pcs, k::Int, next) where {I}
     ko = vo = fo = zero(I)
 
-    for i in range
+    while true
+        i = Threads.atomic_add!(next, 1)
+        i > length(pcs) && break
         pc = pcs[i]
         pc.task = k
         solve!(R, D, Y, pre, base, typ, xwgt, wgt, xtab, vtab, ncol, tab, tval, ws, pc, ko, vo, fo)
