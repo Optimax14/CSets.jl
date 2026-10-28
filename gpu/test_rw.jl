@@ -42,7 +42,13 @@ for trial in 1:150
             ok &= ishom(X, Y, hg) && isapprox(hweight(R, W, X, Y, hg), vc; rtol=1e-9)
         end
     end
-    ok || println("MISMATCH trial $trial $R score cpu=$sc gpu=$sg")
+    if !ok
+        println("MISMATCH trial $trial $R score cpu=$sc gpu=$sg")
+        if CSets.isselective(R)
+            vc, hc = color(R, W, D, Y); vg, hg = CSetsGPU.color(R, W, D, Y)
+            println("   color cpu=$vc gpu=$vg hom=", isnothing(hg) ? "none" : ishom(X, Y, hg), " w=", isnothing(hg) ? 0 : hweight(R, W, X, Y, hg), " cpunothing=", isnothing(hc))
+        end
+    end
     global nok += ok; global N += 1
 end
 println("rw ok $nok / $N")

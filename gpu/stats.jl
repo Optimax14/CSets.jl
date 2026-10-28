@@ -2,7 +2,9 @@
 # A copy of CSets.color(D, Y) that times the forward and backward
 # passes separately and records the shape of the decomposition.
 #
-using CSets: CSets, Decomposition, FVector, FScalar, invmap, invvtx, normalize, bagsearch!, two, AbstractSemiring, Boolean, Lawvere, Probability, szero, sone, valtype
+include(joinpath(@__DIR__, "refsearch.jl"))
+using .RefSearch: bagsearch!, normalize
+using CSets: CSets, Decomposition, FVector, FScalar, invmap, invvtx, two, AbstractSemiring, Boolean, Lawvere, Probability, szero, sone, valtype
 using Base: oneto
 
 function depths(D::Decomposition{I}) where {I}

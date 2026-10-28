@@ -272,3 +272,92 @@ End to end (decomposition + search), CPU vs GPU contraction with the same orderi
 - Order is preserved because aborted items are replaced in place by their children, so the tables are still bit-identical. `test.jl` passes 174/174 with budgets of 4, 64 and 16k.
 - Not split yet: items whose whole separator is fixed but whose residual existence search is huge. That needs first-to-succeed sub-items with a per-parent flag.
 - The tail-bound unsatisfiable case (pk5-n1000-G60, 1.6× on HPG) is in the HPG `big` suite with `budget=0` and `budget=16k`, still to be run.
+
+## Round 3: Richard's (R, W) API, batching, HPG results
+
+### Upstream API (origin/main, through 0d2c2a7)
+
+The branch is rebased on origin/main. `src/` is untouched; the GPU code is in `gpu/`.
+
+| GPU call | what it does |
+|---|---|
+| `CSetsGPU.score(R, W, D, Y)` | the score, for `R ∈ {Boolean(), Lawvere(), Probability()}` and W in upstream's per-sort weight-matrix convention (`nothing`, or `W[c]` of size \|Y(c)\| × \|X(c)\|, caller numbering) |
+| `CSetsGPU.color(R, W, D, Y)` | the score and a witness, for selective R |
+| `CSetsGPU.color(W, D, Y)` | a Boolean witness |
+
+These run on the contraction (`contractgpu.jl`):
+
+- The semiring maps to an algebra:
+  - Boolean: bit-packed.
+  - Lawvere: `Semiring(Inf, 0, min, +, atomicmin!)`, with min done by compare-and-swap.
+  - Probability: `Semiring(0, 1, +, *, atomic_add!)`.
+- Weights become one column weight per entry of a bag's local table: the product of the weights of the bag's residual elements. Each element is residual in exactly one bag, so every weight is counted once.
+- The witness for a selective semiring picks, in each bag, the first column whose value equals the best value over its separator assignment.
+- `:wide` (out of memory) falls back to the CPU `CSets.score` / `CSets.color`.
+
+Validation against upstream's CPU `score`/`color`:
+
+| test | what it checks | result |
+|---|---|---|
+| `test_rw.jl` / `test_rw_rep.jl` | Boolean / Lawvere / Probability with random weights: score, witness value, witness is a homomorphism, witness weight equals the CPU value | 150/150 in each of 15 runs (12 seeds) |
+| `test.jl` | GPU tables vs the d2927d3 search, kept as `gpu/refsearch.jl` (upstream's new decompositions reorder elements; the tables still match bit for bit) | 174/174 |
+| `test_cgpu.jl` | contraction answers vs CPU | 310/310 |
+| `test_many.jl` | batched answers vs CPU, per target | 434/434 |
+| `test_semiring.jl` | counting vs brute force | 120/120 |
+| `test_contract.jl` | contraction reference vs CPU | 210/210 |
+
+One `test_rw` run before the rebase reported 149/150 and could not be reproduced in 14 later runs. GPU float atomics can reorder sums, so a near-tie is the likely cause.
+
+### Batching many targets in one pass (level-synchronous)
+
+`CSetsGPU.color(prep, Ys::Vector)` carries a target index on every work item. Bag t gets a table per target (index `(q-1)·nt + t`), and the targets are concatenated into one instance with per-target blocks of `typx`/`base`. A target whose table becomes empty is marked dead; the other targets continue, and the backward pass runs only for the live ones.
+
+HPG (RTX PRO 6000 vs one EPYC 9655P core), partial 3-tree n=20000, 24 random targets (11 satisfiable):
+
+| method | time (s) | vs CPU |
+|---|---:|---:|
+| CPU | 7.72 | 1× |
+| one target at a time, cached prep | 0.67 | 11.5× |
+| **one batched pass** | **0.142** | **54×** |
+
+### Random-mate rounds without a host sync per round
+
+The rounds now run in batches of 8, with one host check per batch, and no `findall`. On the laptop this fixed grid 5×2000 (0.36 s → 0.022 s, 8× over the CPU). The HPG `wide` and `e2e` reruns with this version did not finish: SSH to HPG failed again.
+
+### HPG v2 results (before the batched-round and type-stability fixes)
+
+Contraction:
+
+| workload | CPU (s) | GPU (s) | speedup |
+|---|---:|---:|---:|
+| grid 4×100000 → K3 | 3.29 | 0.093 | **35.5×** |
+| grid 5×2000 → K3 | 0.18 | 0.013 | 14× |
+| grid 5×1000 → K4 | 0.45 | 0.070 | 6.5× |
+| grid 6×4000 → K3 (2.7 GB of matrices; L = 1458) | 0.96 | 0.139 | 6.9× |
+| grid 6×1000 → K3 | 0.18 | 0.076 | 2.3× |
+| grid 7×1000 → K3 (L = 4374) | 0.77 | 0.59 | 1.3× |
+
+Level-synchronous search, best of `budget=0` / `budget=16k`:
+
+| workload | speedup |
+|---|---:|
+| pk4-n3000-G40 | 71× |
+| pk4-n1000-G40 | 69× (the budget split helps: 43× without it) |
+| pk3-n5000-G30 | 67× |
+| pk5-n20000-K6 | 40× |
+| pk6-n5000-K7 | 36× |
+| pk4-n20000-K5 | 17× |
+| pk5-n1000-G60 (unsat; tail-bound in the residual search) | 1.7–2× |
+
+Miters, end to end (decomposition + search), CPU vs GPU contraction with the same ordering on both:
+
+| miter | ordering | search speedup | end-to-end speedup |
+|---|---|---:|---:|
+| 10k | MMD | 18–23× | 5.1–6.4× |
+| 10k | MF | 11.5× | 1.7–3.3× |
+| 100k | MMD | 20–27× | 3.4–4.0× |
+
+- **Decomposition (HPG CPU):** MMD and AMD build the decomposition 2.5–4× faster than MF with the same bags. ND(METIS) gives the same width but is 2–5× slower than MF.
+- **Upstream CPU speed-ups:** the new upstream CPU search is 1.2–2.9× faster than d2927d3 on the laptop (miter 10k: 0.27 vs 0.78 s). That lowers the miter speedups proportionally; the large-target speedups barely change.
+
+Raw TSVs are in `gpu/results/hpg_v2/`.
