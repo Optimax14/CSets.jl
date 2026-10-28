@@ -972,8 +972,15 @@ function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=
         return witness ? (withvalue ? (azero(alg), nothing) : nothing) : azero(alg)
     end
 
-    tab, xtab, Fd, Pc, yord = R.tab, R.xtab, R.ncol, R.Pc, R.yord
-    F = Array(Fd)
+    #
+    # (color returns a Union: assert the types for the loops below)
+    #
+    tab = R.tab::CuVector{J}
+    xtab = R.xtab::CuVector{J}
+    Fd = R.ncol::CuVector{J}
+    Pc = R.Pc::Plan{Vector{J}}
+    yord = R.yord
+    F = Array(Fd)::Vector{J}
     nch = C.nch
     xF = Vector{J}(undef, nt)
     xC = Vector{J}(undef, nt)
