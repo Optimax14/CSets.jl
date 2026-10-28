@@ -21,7 +21,7 @@ for trial in 1:parse(Int, get(ENV, "NTRIAL", "120"))
         W = randweights(rng, R, Y, nv)
     end
     D = decomposition(X, S; alg=MF())
-    P = Threaded(rand(rng, (1, 2, 3, 8, 16)); minwork=rand(rng, (0, 256)), deep=rand(rng, (1, 256)))
+    P = Threaded(rand(rng, (1, 2, 3, 8, 16)); minwork=rand(rng, (0, 256)), deep=rand(rng, (1, 256)), contract=rand(rng, (1, 50000)))
     ok = try
         same(score(R, W, D, Y), score(P, R, W, D, Y))
     catch e

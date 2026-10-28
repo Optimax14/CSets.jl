@@ -19,14 +19,16 @@ struct Threaded
     #
     minwork::Int
     #
-    # a Boolean search on a tree with at least this many levels uses
-    # tree contraction (treecontraction.jl)
+    # a search on a tree with at least this many levels is serial, or,
+    # in the Boolean semiring with at least `contract` nodes, uses tree
+    # contraction (treecontraction.jl)
     #
     deep::Int
+    contract::Int
 end
 
-function Threaded(ntasks::Integer=Threads.nthreads(); minwork::Integer=256, deep::Integer=256)
-    return Threaded(ntasks, minwork, deep)
+function Threaded(ntasks::Integer=Threads.nthreads(); minwork::Integer=256, deep::Integer=256, contract::Integer=50000)
+    return Threaded(ntasks, minwork, deep, contract)
 end
 
 function score(P::Threaded, R::AbstractSemiring, W, X::Instance{I}, S::Span{I}, Y::Instance{I}; kw...) where {I}
@@ -59,17 +61,22 @@ function color(P::Threaded, D::Decomposition{I}, Y::Instance{I}) where {I}
 end
 
 #
-# Many targets: each is solved serially, the targets in parallel.
+# Many targets: the targets in parallel, each with its share of the
+# tasks.
 #
 function score(P::Threaded, R::AbstractSemiring, Ws::AbstractVector, D::Decomposition{I}, Ys::AbstractVector{<:Instance{I}}) where {I}
+    Q = Threaded(max(1, P.ntasks ÷ length(Ys)), P.minwork, P.deep, P.contract)
+
     return tmap(P.ntasks, eachindex(Ys)) do q
-        score(R, Ws[q], D, Ys[q])
+        score(Q, R, Ws[q], D, Ys[q])
     end
 end
 
 function color(P::Threaded, R::AbstractSemiring, Ws::AbstractVector, D::Decomposition{I}, Ys::AbstractVector{<:Instance{I}}) where {I}
+    Q = Threaded(max(1, P.ntasks ÷ length(Ys)), P.minwork, P.deep, P.contract)
+
     return tmap(P.ntasks, eachindex(Ys)) do q
-        color(R, Ws[q], D, Ys[q])
+        color(Q, R, Ws[q], D, Ys[q])
     end
 end
 
@@ -374,9 +381,17 @@ function solve!(
 end
 
 function psolve(P::Threaded, R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}, witness::Bool, ::Type{T}) where {I, T}
-    if R isa Boolean && treeheight(D) >= P.deep
-        value, h = contractsolve(P, R, W, D, Y, witness)
-        return convert(T, value), h
+    #
+    # A deep tree has few nodes per level. Large Boolean ones are
+    # contracted; the others are solved serially.
+    #
+    if treeheight(D) >= P.deep
+        if R isa Boolean && D.tree.nu >= P.contract
+            value, h = contractsolve(P, R, W, D, Y, witness)
+            return convert(T, value), h
+        else
+            return solve(kernel(ContractionWorkspace(D)), witness ? lift! : nothing, R, W, D, Y, T)
+        end
     end
 
     Y, yord = normalize(Y)
