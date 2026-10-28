@@ -360,4 +360,4 @@ Miters, end to end (decomposition + search), CPU vs GPU contraction with the sam
 - **Decomposition (HPG CPU):** MMD and AMD build the decomposition 2.5–4× faster than MF with the same bags. ND(METIS) gives the same width but is 2–5× slower than MF.
 - **Upstream CPU speed-ups:** the new upstream CPU search is 1.2–2.9× faster than d2927d3 on the laptop (miter 10k: 0.27 vs 0.78 s). That lowers the miter speedups proportionally; the large-target speedups barely change.
 
-Raw TSVs are in `gpu/results/hpg_v2/`.
+Raw TSVs are on HPG under `/blue/fairbanksj/itaykadosh/gpu/csets/res/` (`v3a`, `v3b`); they were not copied here because SSH to HPG failed.
