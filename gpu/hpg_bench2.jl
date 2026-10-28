@@ -46,7 +46,7 @@ elseif SUITE == "e2e"
 elseif SUITE == "multi"
     # same X, many Y: cached preparation
     rng = MersenneTwister(4)
-    for (name, nv, E) in (("pk3-n20000", partialktree(rng, 20000, 3, 0.8)...), ("grid4x20000", grid(4, 20000)...))
+    for (name, nv, E) in (("pk3-n20000", partialktree(rng, 20000, 3, 0.8)...), ("grid4x2000", grid(4, 2000)...))
         X = graphinstance(nv, E); S = graphsupport(X); D = decomposition(X, S; alg=MF())
         nq = parse(Int, get(ENV, "NQ", "24"))
         Ys = [begin ny = rand(rng, 4:9); symmetric(ny, randomgraph(rng, ny, rand(rng, 0.4:0.1:0.8))) end for _ in 1:nq]
