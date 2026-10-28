@@ -831,7 +831,17 @@ function contract(C::ContractPrep{I}, Y::Instance{I}; alg=BoolPacked(), witness=
     nt = D.tree.nu
     nu = X.dom.nu
     st0 = Dict{Symbol, Any}()
-    R = color(C.Dl, Y; keep=true, stats=st0, kw...)
+    #
+    # the local tables can be far larger than the tables of the search
+    # (they ignore the children): give up if they do not fit
+    #
+    R = try
+        color(C.Dl, Y; keep=true, stats=st0, kw...)
+    catch e
+        e isa CUDA.OutOfGPUMemoryError || rethrow()
+        GC.gc(); CUDA.reclaim()
+        return :wide
+    end
     tlocal = time_ns()
 
     if isnothing(R)

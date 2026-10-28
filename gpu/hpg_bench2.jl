@@ -48,18 +48,22 @@ elseif SUITE == "multi"
     rng = MersenneTwister(4)
     for (name, nv, E) in (("pk3-n20000", partialktree(rng, 20000, 3, 0.8)...), ("grid4x20000", grid(4, 20000)...))
         X = graphinstance(nv, E); S = graphsupport(X); D = decomposition(X, S; alg=MF())
-        Ys = [begin ny = rand(rng, 4:9); symmetric(ny, randomgraph(rng, ny, rand(rng, 0.4:0.1:0.8))) end for _ in 1:24]
+        nq = parse(Int, get(ENV, "NQ", "24"))
+        Ys = [begin ny = rand(rng, 4:9); symmetric(ny, randomgraph(rng, ny, rand(rng, 0.4:0.1:0.8))) end for _ in 1:nq]
         hcs = [color(D, Y) for Y in Ys]
         tc = @elapsed for Y in Ys; color(D, Y); end
         P = CSetsGPU.prepare(D); C = CSetsGPU.prepare_contract(D)
         CSetsGPU.color(P, Ys[1]); CSetsGPU.contract(C, Ys[1])
         tl = @elapsed hl = [CSetsGPU.color(P, Y) for Y in Ys]
         tlu = @elapsed for Y in Ys; CSetsGPU.color(D, Y); end
+        CSetsGPU.color(P, Ys)
+        tb = @elapsed hb = CSetsGPU.color(P, Ys)
         tk = @elapsed hk = [CSetsGPU.contract(C, Y) for Y in Ys]
         tku = @elapsed for Y in Ys; CSetsGPU.contract(D, Y); end
-        ok = all(okcheck(X, Ys[i], hcs[i], hl[i]) for i in eachindex(Ys)) && all(hk[i] === :wide || okcheck(X, Ys[i], hcs[i], hk[i]) for i in eachindex(Ys))
+        nwide = count(x -> x === :wide, hk)
+        ok = all(okcheck(X, Ys[i], hcs[i], hl[i]) && okcheck(X, Ys[i], hcs[i], hb[i]) for i in eachindex(Ys)) && all(hk[i] === :wide || okcheck(X, Ys[i], hcs[i], hk[i]) for i in eachindex(Ys))
         nsat = count(!isnothing, hcs)
-        emit(name, "24 targets ($nsat sat)", "cpu=$(r4(tc))", "levelsync cached=$(r4(tl)) uncached=$(r4(tlu))", "contract cached=$(r4(tk)) uncached=$(r4(tku))", "x(best cached)=$(r4(tc / min(tl, tk)))", ok)
+        emit(name, "$nq targets ($nsat sat)", "cpu=$(r4(tc))", "levelsync cached=$(r4(tl)) uncached=$(r4(tlu))", "batched one pass=$(r4(tb))", "contract cached=$(r4(tk)) uncached=$(r4(tku)) wide=$nwide", "x(batched)=$(r4(tc / tb))", "x(best)=$(r4(tc / min(tl, tk, tb)))", ok)
     end
 else # big: level-synchronous with resplit
     function pk(seed, n, k, p, Yf)
