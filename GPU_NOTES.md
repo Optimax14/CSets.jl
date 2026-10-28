@@ -361,3 +361,39 @@ Miters, end to end (decomposition + search), CPU vs GPU contraction with the sam
 - **Upstream CPU speed-ups:** the new upstream CPU search is 1.2–2.9× faster than d2927d3 on the laptop (miter 10k: 0.27 vs 0.78 s). That lowers the miter speedups proportionally; the large-target speedups barely change.
 
 Raw TSVs are on HPG under `/blue/fairbanksj/itaykadosh/gpu/csets/res/` (`v3a`, `v3b`); they were not copied here because SSH to HPG failed.
+
+### Semiring values and weights in the level-synchronous search
+
+The level-synchronous search (`CSetsGPU.color(prep, Ys; S, Ws, witness)`) now carries semiring values, so Richard's API runs on the GPU for large targets and shallow trees as well as for deep trees.
+
+- **Tables:** every column (separator assignment) has a value: the ⊕ over its residual extensions of the ⊗ of the weights of the bag's residual elements and of the values of the matching child columns.
+  - When the separator is complete, the narrowed child range is a single column.
+  - A work item emits the separator assignment, with its sum, when its search backtracks out of the residual. Items split only on separator prefixes, so no separator assignment is shared by two items.
+- **Weights:** upstream's per-sort matrices, one block per target. A weight equal to the semiring's zero prunes the candidate immediately.
+- **Witness (selective semirings):** in the backward pass, each bag keeps the best residual extension given its parent's choice.
+- **Dispatch:** `CSetsGPU.score(R, W, D, Y; method=:auto | :levels | :contract)` and `CSetsGPU.color(R, W, D, Y; ...)`. `:auto` uses the level-synchronous search below 256 levels and the contraction above (falling back to the level-synchronous search if the contraction does not fit).
+- **Batched forms:** `CSetsGPU.score(R, Ws, D, Ys)` and `CSetsGPU.color(R, Ws, D, Ys)` run many targets with their weights in one pass.
+
+Validation against upstream's CPU `score`/`color`:
+
+| test | what it checks | result |
+|---|---|---|
+| `test_lsr.jl` | level-synchronous search; Boolean / Lawvere / Probability; 1–5 targets per pass with random weights; random split and budget settings | 231/231 and 233/233 (two seeds) |
+| `test_rw.jl` | random `method` | 150/150 × 4 |
+
+The whole suite also passes with `--check-bounds=yes`. That run caught a real bug: expansion rounds were computing values of partial prefixes. It is fixed.
+
+Laptop RTX 5060 vs the new upstream CPU (which is up to 3× faster than d2927d3):
+
+| instance | semiring | speedup |
+|---|---|---:|
+| pk3-n2000 → G(30) | Boolean | 4.1× |
+| pk3-n2000 → G(30) | Lawvere | 3.4× |
+| pk3-n2000 → G(30) | Probability | 5.8× |
+| small instances (CPU < 0.1 s) | all three | 0.4–0.6× |
+
+On the small instances the GPU loses: the GPU time is all kernel time, spent in one thread's search of a large leaf bag.
+
+HPG numbers for this version are still to do: SSH to HPG failed again.
+
+The branch is pushed to https://github.com/Optimax14/CSets.jl/tree/itay/gpu (rebased on origin/main 0d2c2a7; no PR).
