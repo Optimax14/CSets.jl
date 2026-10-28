@@ -186,6 +186,45 @@ function decomposition(X::Instance{I}, S::Span{I}; kw...) where {I}
     end
 
     order = invmap(nv + one(I), nu, fst).adjncy
+    #
+    # The search assigns each group (elements with the same first
+    # support vertex) from its end. Move one element with an arc into a
+    # later group, which is already assigned, to the end: it is
+    # enumerated from a preimage list, and the rest of the group follows
+    # from it by images or is checked against it at once.
+    #
+    i = one(I)
+
+    while i <= nu
+        j = i
+
+        while j < nu && fst[order[j + one(I)]] == fst[order[i]]
+            j += one(I)
+        end
+
+        for p in j:-one(I):i
+            u = order[p]
+            found = false
+
+            for e in X.dom.xadj[u]:X.dom.xadj[u + one(I)] - one(I)
+                if fst[X.dom.adjncy[e]] > fst[u]
+                    found = true
+                    break
+                end
+            end
+
+            if found
+                for q in p:j - one(I)
+                    order[q] = order[q + one(I)]
+                end
+
+                order[j] = u
+                break
+            end
+        end
+
+        i = j + one(I)
+    end
 
     for u in oneto(nu)
         back[u] = scc[order[u]]
