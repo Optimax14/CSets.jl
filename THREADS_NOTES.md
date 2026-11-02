@@ -77,3 +77,29 @@ Notes:
 - **Deep trees:** CPU tree contraction gives at most 1.6–2.6× over serial (miters, grid 4×100000). It enumerates every bag's local table, about 5–10× the serial work. The GPU contraction is 3.5–8× faster than the best CPU time.
 - **Small instances:** the CPU wins or the two are even.
 - **Many targets (24):** the GPU's single batched pass is 3.9× faster than 64 threads.
+
+## 84 threads and B200 (jobs 48132475, 48132477)
+84 threads on a 96-core EPYC 9655P (hpg-turin). The B200 run is the same `itay/gpu` code as the RTX run. "best CPU" now includes 84 threads. The RTX run 48132476 is excluded on Lawvere because it returned Inf (an old weights bug); 48132877 is used.
+
+| workload | best CPU | 84 thr | RTX | B200 | best CPU ÷ RTX | best CPU ÷ B200 |
+|---|---:|---:|---:|---:|---:|---:|
+| pk4-n20000 → K5 | 0.147 | 0.206 | 0.076 | 0.087 | 1.9× | 1.7× |
+| pk5-n20000 → K6 | 0.499 | 0.499 | 0.209 | 0.228 | 2.4× | 2.2× |
+| pk6-n5000 → K7 | 1.17 | 1.17 | 0.815 | 0.922 | 1.4× | 1.3× |
+| pk3-n5000 → G(30) | 0.187 | 0.218 | 0.145 | 0.141 | 1.3× | 1.3× |
+| pk4-n1000 → G(40) | 1.06 | 1.06 | 0.633 | 0.578 | 1.7× | 1.8× |
+| pk4-n3000 → G(40) | 3.26 | 3.30 | 1.27 | 1.21 | 2.6× | 2.7× |
+| pk3-n3000 → G(30), Lawvere | 0.219 | 0.219 | 0.386 | 0.375 | **0.57×** | **0.58×** |
+| pk3-n3000 → G(30), Probability | 0.220 | 0.220 | 0.153 | 0.166 | 1.4× | 1.3× |
+| grid 4×100000 → K3 | 0.880 | 1.16 | 0.405 | 0.567 | 2.2× | 1.6× |
+| grid 5×1000 → K4 | 0.285 | 0.342 | 0.068 | 0.065 | 4.2× | 4.4× |
+| grid 6×4000 → K3 | 0.543 | 0.543 | 0.149 | 0.144 | 3.7× | 3.8× |
+| miter-bug 10k | 0.178 | 0.480 | 0.032 | 0.046 | 5.6× | 3.8× |
+| miter-bug 100k | 1.64 | 2.20 | 0.539 | 0.446 | 3.0× | 3.7× |
+| miter-eq 30k | 0.540 | 0.875 | 0.126 | 0.134 | 4.3× | 4.0× |
+| pk3-n500 → K4 (small) | 0.002 | 0.010 | 0.013 | 0.016 | **0.2×** | **0.1×** |
+| 24 targets, pk3-n20000 | 0.405 | 0.405 | 0.141 | 0.121 | 2.9× | 3.3× |
+
+- 84 threads rarely beats 32–64; the shallow cases flatten past ~32 threads and the miters get slower.
+- The B200 is no faster than the RTX PRO 6000: these runs are bound by launch latency and memory latency, not by FLOPs or bandwidth.
+- The overall picture is unchanged: the GPU is 1.3–2.7× the full CPU node on big shallow searches, 3–6× on deep trees, 3× on many targets; the CPU wins on Lawvere (1.7×) and tiny instances.
