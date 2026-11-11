@@ -1,0 +1,8 @@
+Model name:                              AMD EPYC 9655P 96-Core Processor
+pk3-n3000-G30-Lawvere	big	serial	1	0.006	4.582	7456.37
+pk3-n3000-G30-Probability	big	serial	1	0.006	2.7948	0.0
+┌ Warning: Assignment to `t` in soft scope is ambiguous because a global variable by the same name exists: `t` will be treated as a new local. Disambiguate by using `local t` to suppress this warning or `global t` to assign to the existing global variable.
+└ @ /blue/fairbanksj/itaykadosh/gpu/csets/CSets.jl-threads/threads/hpgcmp.jl:90
+┌ Warning: Assignment to `v` in soft scope is ambiguous because a global variable by the same name exists: `v` will be treated as a new local. Disambiguate by using `local v` to suppress this warning or `global v` to assign to the existing global variable.
+└ @ /blue/fairbanksj/itaykadosh/gpu/csets/CSets.jl-threads/threads/hpgcmp.jl:90
+DONE

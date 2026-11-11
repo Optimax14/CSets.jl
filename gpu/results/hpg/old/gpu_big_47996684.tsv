@@ -1,0 +1,11 @@
+pk4-n20000-K5	gpu	0.0826	0.1609	true	true	18532	24	20	14	plan=0.0049 fwd=0.1107 kern=0.104 bwd=0.0065 rounds=128 tab=14624450
+pk6-n5000-K7	gpu	0.0271	4.3409	true	true	4720	22	32	23	plan=0.2127 fwd=3.2591 kern=3.2438 bwd=0.0141 rounds=125 tab=366951179
+pk5-n20000-K6	gpu	0.1544	1.1373	true	true	18771	25	24	17	plan=0.0049 fwd=0.6743 kern=0.6646 bwd=0.012 rounds=136 tab=117392214
+pk3-n5000-G30	gpu	0.0092	1.2037	true	true	4633	21	14	9	plan=0.001 fwd=1.1716 kern=1.1667 bwd=0.0097 rounds=95 tab=12307901
+pk4-n1000-G40	gpu	0.0021	3.4929	true	true	922	20	18	13	plan=0.0003 fwd=3.1503 kern=3.1445 bwd=0.011 rounds=89 tab=49782441
+pk4-n3000-G40	gpu	0.0077	33.2606	true	true	2765	19	19	13	plan=0.0006 fwd=32.8077 kern=32.8011 bwd=0.0207 rounds=89 tab=85701431
+pk5-n1000-G60	gpu	0.0028	14.7143	false	true	923	14	23	17	plan=0.0 fwd=14.7135 kern=14.7125 bwd=0.0 rounds=3 tab=0
+grid8x500-K3	gpu	0.0033	1.0738	true	true	3518	939	13	10	plan=0.0005 fwd=0.6727 kern=0.4359 bwd=0.0532 rounds=6562 tab=39952188
+grid10x200-K3	gpu	0.0022	1.4207	true	true	1580	113	17	14	plan=0.0003 fwd=0.9334 kern=0.9019 bwd=0.0159 rounds=783 tab=124650984
+grid6x1000-K4	gpu	0.0042	1.6494	true	true	5518	2003	12	9	plan=0.0007 fwd=1.434 kern=0.8806 bwd=0.0874 rounds=14009 tab=57940256
+grid7x500-K4	gpu	0.003	1.034	true	true	3102	596	14	11	plan=0.0005 fwd=0.52 kern=0.3579 bwd=0.0479 rounds=4160 tab=132508384

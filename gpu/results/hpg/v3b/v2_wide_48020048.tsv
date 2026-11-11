@@ -1,0 +1,12 @@
+grid4x100000-K3	mate	3.7798	1.1796	3.2042	true	local=0.0397 contract=1.1226 jumps=0.0213 witness=0.0173 maxL=81 MB=497 rounds=140
+grid4x100000-K3	wyllie	3.7798	1.2228	3.0911	true	local=0.0368 contract=1.1699 jumps=0.044 witness=0.016 maxL=81 MB=497 rounds=59
+grid5x2000-K3	mate	0.2277	0.0996	2.2876	true	local=0.0033 contract=0.0954 jumps=0.0028 witness=0.0008 maxL=243 MB=71 rounds=102
+grid5x2000-K3	wyllie	0.2277	0.0972	2.3429	true	local=0.0033 contract=0.0931 jumps=0.0031 witness=0.0008 maxL=243 MB=71 rounds=33
+grid6x1000-K3	mate	0.1923	0.4854	0.3962	true	local=0.0054 contract=0.479 jumps=0.0367 witness=0.0009 maxL=1458 MB=665 rounds=116
+grid6x1000-K3	wyllie	0.1923	0.59	0.3259	true	local=0.0053 contract=0.5837 jumps=0.0859 witness=0.0009 maxL=1458 MB=665 rounds=34
+grid5x1000-K4	mate	0.4675	0.475	0.9841	true	local=0.0089 contract=0.4652 jumps=0.0432 witness=0.0008 maxL=1024 MB=627 rounds=109
+grid5x1000-K4	wyllie	0.4675	0.63	0.742	true	local=0.0086 contract=0.6205 jumps=0.182 witness=0.0008 maxL=1024 MB=627 rounds=31
+grid6x4000-K3	mate	1.0028	2.1466	0.4671	true	local=0.0182 contract=2.1239 jumps=0.0725 witness=0.0045 maxL=1458 MB=2670 rounds=150
+grid6x4000-K3	wyllie	1.0028	2.4791	0.4045	true	local=0.0176 contract=2.457 jumps=0.4621 witness=0.0045 maxL=1458 MB=2670 rounds=38
+grid7x1000-K3	mate	0.5899	1.912	0.3085	true	local=0.0185 contract=1.8904 jumps=0.406 witness=0.0031 maxL=4374 MB=5260 rounds=124
+grid7x1000-K3	wyllie	0.5899	2.7405	0.2152	true	local=0.0146 contract=2.7229 jumps=1.2311 witness=0.0029 maxL=4374 MB=5260 rounds=33

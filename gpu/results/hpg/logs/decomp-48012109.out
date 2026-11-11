@@ -1,0 +1,26 @@
+Model name:                              AMD EPYC 9655P 96-Core Processor
+n=10000 MF decomp=0.2381 color=0.4646 maxbag=10 maxsep=7 depth=19934 nodes=100004
+n=10000 MMD decomp=0.0607 color=0.3583 maxbag=9 maxsep=6 depth=10004 nodes=99994
+n=10000 AMD decomp=0.0659 color=0.299 maxbag=10 maxsep=6 depth=39999 nodes=99992
+n=10000 ND(MMD,METIS) decomp=0.3867 color=0.318 maxbag=10 maxsep=7 depth=10595 nodes=99994
+n=10000 ND(MF,METIS) decomp=0.9033 color=0.3695 maxbag=10 maxsep=7 depth=12952 nodes=100850
+n=30000 MF decomp=0.6095 color=1.3035 maxbag=10 maxsep=6 depth=48490 nodes=300026
+n=30000 MMD decomp=0.2885 color=1.1805 maxbag=9 maxsep=6 depth=30004 nodes=299994
+n=30000 AMD decomp=0.2863 color=1.0143 maxbag=10 maxsep=6 depth=119999 nodes=299992
+n=30000 ND(MMD,METIS) decomp=1.2349 color=0.9918 maxbag=10 maxsep=7 depth=32826 nodes=299994
+n=30000 ND(MF,METIS) decomp=2.6253 color=1.1807 maxbag=10 maxsep=7 depth=37005 nodes=301044
+n=100000 MF decomp=2.0837 color=3.618 maxbag=10 maxsep=6 depth=231019 nodes=1000326
+n=100000 MMD decomp=0.8499 color=3.6817 maxbag=9 maxsep=6 depth=100004 nodes=999994
+n=100000 AMD decomp=0.7803 color=3.2297 maxbag=10 maxsep=6 depth=399999 nodes=999992
+n=100000 ND(MMD,METIS) decomp=4.2864 color=3.2909 maxbag=10 maxsep=7 depth=108902 nodes=999994
+n=100000 ND(MF,METIS) decomp=9.7643 color=3.6877 maxbag=10 maxsep=7 depth=112638 nodes=1001253
+miter n=10000  |V(gaifman)|=139995 |E|=619974  cliquetree=0.0969 gaifman=0.0044 permute=0.0019 rest(separators etc)=-0.0893 sccs=0.0013 total=0.1284
+   alg=AMF() cliquetree=0.1353 color=0.7295
+   alg=MMD(0) cliquetree=0.1341 color=0.3573
+miter n=30000  |V(gaifman)|=419995 |E|=1859974  cliquetree=0.3869 gaifman=0.0142 permute=0.0059 rest(separators etc)=0.0412 sccs=0.0041 total=0.5621
+   alg=AMF() cliquetree=0.2125 color=0.9466
+   alg=MMD(0) cliquetree=0.1051 color=1.0699
+miter n=100000  |V(gaifman)|=1399995 |E|=6199974  cliquetree=1.4772 gaifman=0.0491 permute=0.0297 rest(separators etc)=0.0493 sccs=0.0144 total=1.9075
+   alg=AMF() cliquetree=0.4403 color=2.7259
+   alg=MMD(0) cliquetree=0.5289 color=3.6602
+DONE

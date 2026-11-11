@@ -1,0 +1,20 @@
+Model name:                              AMD EPYC 9655P 96-Core Processor
+n=10000 ordering(MF)=0.0699 cliquetree(given perm)=0.0165 cliquetree(MF)=0.0891 decomposition(MF)=0.1731 decomposition(given perm)=0.0672
+n=30000 ordering(MF)=0.3709 cliquetree(given perm)=0.0774 cliquetree(MF)=0.4777 decomposition(MF)=0.7742 decomposition(given perm)=0.3986
+n=100000 ordering(MF)=1.7023 cliquetree(given perm)=0.3762 cliquetree(MF)=2.1768 decomposition(MF)=2.8508 decomposition(given perm)=1.0808
+n=10000 MF decomp=0.3108 color=0.4303 maxbag=10 depth=19934
+n=10000 AMF decomp=0.2459 color=0.286 maxbag=10 depth=39995
+n=10000 MMD decomp=0.0942 color=0.3992 maxbag=9 depth=10004
+n=10000 MCS decomp=0.0838 color=0.6545 maxbag=11 depth=89994
+n=10000 RCMMD decomp=0.0814 color=0.3194 maxbag=13 depth=60000
+n=30000 MF decomp=0.7925 color=1.4937 maxbag=10 depth=48490
+n=30000 AMF decomp=0.4114 color=0.9069 maxbag=10 depth=119995
+n=30000 MMD decomp=0.2609 color=1.2303 maxbag=9 depth=30004
+n=30000 MCS decomp=0.3741 color=1.957 maxbag=11 depth=269994
+n=30000 RCMMD decomp=0.3644 color=1.0364 maxbag=13 depth=180000
+n=100000 MF decomp=2.9294 color=3.961 maxbag=10 depth=231019
+n=100000 AMF decomp=1.4313 color=2.8174 maxbag=10 depth=399995
+n=100000 MMD decomp=1.3996 color=3.9024 maxbag=9 depth=100004
+n=100000 MCS decomp=0.9854 color=6.2583 maxbag=11 depth=899994
+n=100000 RCMMD decomp=0.5606 color=3.0097 maxbag=13 depth=600000
+DONE

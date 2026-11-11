@@ -1,0 +1,7 @@
+miter-eq-10000	gpu	0.1189	0.0424	false	true	119992	12320	8	7	local=0.0 contract=0.0 witness=0.0 phases=5 jumps=29
+miter-bug-10000	gpu	0.0898	0.0308	true	true	100004	19934	10	7	local=0.0195 contract=0.0094 witness=0.0017 phases=4 jumps=46
+miter-eq-30000	gpu	0.6476	0.0993	false	true	359992	45546	8	7	local=0.0 contract=0.0 witness=0.0 phases=5 jumps=32
+miter-bug-30000	gpu	0.397	0.102	true	true	300026	48490	10	6	local=0.0763 contract=0.0209 witness=0.0046 phases=4 jumps=49
+miter-eq-100000	gpu	1.9535	0.4938	false	true	1199992	144007	8	7	local=0.0 contract=0.0 witness=0.0 phases=5 jumps=35
+miter-bug-100000	gpu	1.5251	0.3307	true	true	1000326	231019	10	6	local=0.191 contract=0.124 witness=0.0153 phases=4 jumps=58
+grid4x20000-K3	gpu	0.0392	0.0315	true	true	79996	79975	9	7	local=0.0212 contract=0.0088 witness=0.0014 phases=2 jumps=52

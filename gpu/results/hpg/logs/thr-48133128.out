@@ -1,0 +1,67 @@
+CPU(s):                                  96
+Model name:                              AMD EPYC 9655P 96-Core Processor
+pk4-n20000-K5	big	threads	1	0.0841	0.7838	true
+pk4-n20000-K5	big	threads	8	0.0841	0.1865	true
+pk4-n20000-K5	big	threads	32	0.0841	0.1533	true
+pk5-n20000-K6	big	threads	1	0.1457	5.1481	true
+pk5-n20000-K6	big	threads	8	0.1457	0.9775	true
+pk5-n20000-K6	big	threads	32	0.1457	0.5227	true
+pk6-n5000-K7	big	threads	1	0.027	14.6158	true
+pk6-n5000-K7	big	threads	8	0.027	2.6926	true
+pk6-n5000-K7	big	threads	32	0.027	1.5163	true
+pk3-n5000-G30	big	threads	1	0.0086	4.1333	true
+pk3-n5000-G30	big	threads	8	0.0086	0.5827	true
+pk3-n5000-G30	big	threads	32	0.0086	0.2066	true
+pk4-n1000-G40	big	threads	1	0.0019	16.1381	true
+pk4-n1000-G40	big	threads	8	0.0019	3.4133	true
+pk4-n1000-G40	big	threads	32	0.0019	1.8481	true
+pk4-n3000-G40	big	threads	1	0.0075	37.2706	true
+pk4-n3000-G40	big	threads	8	0.0075	6.4026	true
+pk4-n3000-G40	big	threads	32	0.0075	3.3158	true
+pk3-n3000-G30-Lawvere	big	threads	1	0.0045	3.6186	7456.37
+pk3-n3000-G30-Lawvere	big	threads	8	0.0045	0.5669	7456.37
+pk3-n3000-G30-Lawvere	big	threads	32	0.0045	0.2354	7456.37
+pk3-n3000-G30-Probability	big	threads	1	0.0047	3.6574	0.0
+pk3-n3000-G30-Probability	big	threads	8	0.0047	0.5559	0.0
+pk3-n3000-G30-Probability	big	threads	32	0.0047	0.2521	0.0
+grid4x100000-K3	deep	threads	1	0.252	3.3749	true
+grid4x100000-K3	deep	threads	8	0.252	1.2075	true
+grid4x100000-K3	deep	threads	32	0.252	0.8802	true
+grid6x1000-K3	deep	threads	1	0.004	0.5721	true
+grid6x1000-K3	deep	threads	8	0.004	0.2892	true
+grid6x1000-K3	deep	threads	32	0.004	0.3091	true
+grid5x1000-K4	deep	threads	1	0.003	0.9256	true
+grid5x1000-K4	deep	threads	8	0.003	0.3812	true
+grid5x1000-K4	deep	threads	32	0.003	0.3056	true
+grid6x4000-K3	deep	threads	1	0.0159	1.9622	true
+grid6x4000-K3	deep	threads	8	0.0159	1.1299	true
+grid6x4000-K3	deep	threads	32	0.0159	0.9866	true
+miter-bug-10000	deep	threads	1	0.0899	0.4423	true
+miter-bug-10000	deep	threads	8	0.0899	0.2135	true
+miter-bug-10000	deep	threads	32	0.0899	0.1776	true
+miter-bug-30000	deep	threads	1	0.352	1.3176	true
+miter-bug-30000	deep	threads	8	0.352	0.5421	true
+miter-bug-30000	deep	threads	32	0.352	0.5601	true
+miter-bug-100000	deep	threads	1	1.3588	4.5309	true
+miter-bug-100000	deep	threads	8	1.3588	2.3269	true
+miter-bug-100000	deep	threads	32	1.3588	1.8877	true
+miter-eq-30000	deep	threads	1	0.3839	1.3834	true
+miter-eq-30000	deep	threads	8	0.3839	0.598	true
+miter-eq-30000	deep	threads	32	0.3839	0.5418	true
+pk3-n500-K4	small	threads	1	0.0006	0.0033	true
+pk3-n500-K4	small	threads	8	0.0006	0.002	true
+pk3-n500-K4	small	threads	32	0.0006	0.0033	true
+grid4x200-K3	small	threads	1	0.0006	0.0152	true
+grid4x200-K3	small	threads	8	0.0006	0.0115	true
+grid4x200-K3	small	threads	32	0.0006	0.0112	true
+miter-bug-1000	small	threads	1	0.0086	0.0502	true
+miter-bug-1000	small	threads	8	0.0086	0.0372	true
+miter-bug-1000	small	threads	32	0.0086	0.0253	true
+many24-pk3-n20000	many	threads	1	0	3.7793	11
+many24-pk3-n20000	many	threads	8	0	0.584	11
+many24-pk3-n20000	many	threads	32	0	0.5021	11
+┌ Warning: Assignment to `t` in soft scope is ambiguous because a global variable by the same name exists: `t` will be treated as a new local. Disambiguate by using `local t` to suppress this warning or `global t` to assign to the existing global variable.
+└ @ /blue/fairbanksj/itaykadosh/gpu/csets/CSets.jl-threads/threads/hpgcmp.jl:90
+┌ Warning: Assignment to `v` in soft scope is ambiguous because a global variable by the same name exists: `v` will be treated as a new local. Disambiguate by using `local v` to suppress this warning or `global v` to assign to the existing global variable.
+└ @ /blue/fairbanksj/itaykadosh/gpu/csets/CSets.jl-threads/threads/hpgcmp.jl:90
+DONE

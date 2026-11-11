@@ -1,0 +1,396 @@
+name, memory.total [MiB]
+NVIDIA RTX PRO 6000 Blackwell Server Edition, 97887 MiB
+PLEASE submit a bug report to https://github.com/julialang/julia and include the crash backtrace.
+Stack dump:
+0.	Program arguments: /apps/julia/1.12.6/libexec/julia/lld -flavor gnu  -shared -o /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_zD6pdE --whole-archive /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_WDiPFs --no-whole-archive -L/apps/julia/1.12.6/lib/julia -L/apps/julia/1.12.6/lib -ljulia -ljulia-internal
+Stack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):
+0  libLLVM.so.18.1jl 0x000014720cdd5ac8 llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) + 40
+1  libLLVM.so.18.1jl 0x000014720cdd337c
+2  libc.so.6         0x000014720be3fb30
+3  lld               0x0000000000676be1 void lld::elf::writeEhdr<llvm::object::ELFType<(llvm::endianness)1, true>>(unsigned char*, lld::elf::Partition&) + 17
+4  lld               0x00000000006de021
+5  lld               0x00000000006decf9 void lld::elf::writeResult<llvm::object::ELFType<(llvm::endianness)1, true>>() + 25
+6  lld               0x00000000005853f7 lld::elf::LinkerDriver::link(llvm::opt::InputArgList&) + 11879
+7  lld               0x000000000058649f lld::elf::LinkerDriver::linkerMain(llvm::ArrayRef<char const*>) + 3551
+8  lld               0x0000000000587d60 lld::elf::link(llvm::ArrayRef<char const*>, llvm::raw_ostream&, llvm::raw_ostream&, bool, bool) + 4560
+9  lld               0x0000000000474f12 lld::unsafeLldMain(llvm::ArrayRef<char const*>, llvm::raw_ostream&, llvm::raw_ostream&, llvm::ArrayRef<lld::DriverDef>, bool) + 690
+10 lld               0x00000000004748c1 lld_main(int, char**, llvm::ToolContext const&) + 609
+11 lld               0x0000000000472bd4 main + 84
+12 libc.so.6         0x000014720be2a610
+13 libc.so.6         0x000014720be2a6c0 __libc_start_main + 128
+14 lld               0x0000000000474153
+PLEASE submit a bug report to https://github.com/julialang/julia and include the crash backtrace.
+Stack dump:
+0.	Program arguments: /apps/julia/1.12.6/libexec/julia/lld -flavor gnu  -shared -o /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_MQfBeT --whole-archive /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_9gQ05p --no-whole-archive -L/apps/julia/1.12.6/lib/julia -L/apps/julia/1.12.6/lib -ljulia -ljulia-internal
+Stack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):
+0  libLLVM.so.18.1jl 0x000015465327dac8 llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) + 40
+1  libLLVM.so.18.1jl 0x000015465327b37c
+2  libc.so.6         0x000015465223fb30
+3  lld               0x0000000000676be1 void lld::elf::writeEhdr<llvm::object::ELFType<(llvm::endianness)1, true>>(unsigned char*, lld::elf::Partition&) + 17
+4  lld               0x00000000006de021
+5  lld               0x00000000006decf9 void lld::elf::writeResult<llvm::object::ELFType<(llvm::endianness)1, true>>() + 25
+6  lld               0x00000000005853f7 lld::elf::LinkerDriver::link(llvm::opt::InputArgList&) + 11879
+7  lld               0x000000000058649f lld::elf::LinkerDriver::linkerMain(llvm::ArrayRef<char const*>) + 3551
+8  lld               0x0000000000587d60 lld::elf::link(llvm::ArrayRef<char const*>, llvm::raw_ostream&, llvm::raw_ostream&, bool, bool) + 4560
+9  lld               0x0000000000474f12 lld::unsafeLldMain(llvm::ArrayRef<char const*>, llvm::raw_ostream&, llvm::raw_ostream&, llvm::ArrayRef<lld::DriverDef>, bool) + 690
+10 lld               0x00000000004748c1 lld_main(int, char**, llvm::ToolContext const&) + 609
+11 lld               0x0000000000472bd4 main + 84
+12 libc.so.6         0x000015465222a610
+13 libc.so.6         0x000015465222a6c0 __libc_start_main + 128
+14 lld               0x0000000000474153
+Precompiling packages...
+UNHANDLED TASK ERROR: failed process: Process(setenv(`/apps/julia/1.12.6/libexec/julia/lld -flavor gnu '' -shared -o /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_zD6pdE --whole-archive /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_WDiPFs --no-whole-archive -L/apps/julia/1.12.6/lib/julia -L/apps/julia/1.12.6/lib -ljulia -ljulia-internal`,["__LMOD_REF_COUNT_PATH=/apps/julia/1.12.6/bin:1;/apps/lib/libcurl/7.49.1/bin:1;/home/itaykadosh/.local/bin:1;/home/itaykadosh/bin:1;/apps/ufrc/bin:1;/opt/slurm/bin:1;/usr/local/bin:1;/usr/bin:1;/usr/local/sbin:1;/usr/sbin:1;/opt/puppetlabs/bin:1;/bin:1", "OMPI_MCA_plm_slurm_args=--external-launcher", "PATH=/apps/julia/1.12.6/libexec/julia:/apps/julia/1.12.6/bin:/apps/julia/1.12.6/bin:/apps/lib/libcurl/7.49.1/bin:/home/itaykadosh/.local/bin:/home/itaykadosh/bin:/apps/ufrc/bin:/opt/slurm/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/opt/puppetlabs/bin:/bin", "SLURM_TASKS_PER_NODE=1", "SLURM_NODEID=0", "SLURM_JOB_GID=4035", "LMOD_ROOT=/apps/lmod", "SLURM_JOB_NAME=itay-csets-gpu2", "SLURM_TRES_PER_TASK=cpu=2", "LD_LIBRARY_PATH=/apps/julia/1.12.6/lib/julia:/apps/julia/1.12.6/lib:/apps/julia/1.12.6/lib/julia:/apps/lib/libcurl/7.49.1/lib:/opt/slurm/lib64::"  …  "PKG_CONFIG_PATH=/apps/lib/libcurl/7.49.1/lib/pkgconfig", "SLURM_PROCID=0", "JULIA_CPU_TARGET=generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1);x86-64-v4,-rdrnd,base(1)", "I_MPI_HYDRA_BOOTSTRAP_EXEC_EXTRA_ARGS=--external-launcher", "__LMOD_REF_COUNT_PKG_CONFIG_PATH=/apps/lib/libcurl/7.49.1/lib/pkgconfig:1", "SLURM_CPUS_PER_TASK=2", "JULIA_HISTORY=/dev/null", "SLURM_NNODES=1", "LMOD_COLORIZE=yes", "OPENBLAS_MAIN_FREE=1"]), ProcessSignaled(7)) [0]
+
+Stacktrace:
+  [1] pipeline_error
+    @ ./process.jl:597 [inlined]
+  [2] run(::Cmd, ::Base.DevNull, ::Vararg{Any}; wait::Bool)
+    @ Base ./process.jl:512
+  [3] run
+    @ ./process.jl:509 [inlined]
+  [4] link_image (repeats 2 times)
+    @ ./linking.jl:151 [inlined]
+  [5] compilecache(pkg::Base.PkgId, path::String, internal_stderr::IO, internal_stdout::IO, keep_loaded_modules::Bool; flags::Cmd, cacheflags::Base.CacheFlags, reasons::Dict{String, Int64}, loadable_exts::Nothing)
+    @ Base ./loading.jl:3240
+  [6] compilecache
+    @ ./loading.jl:3193 [inlined]
+  [7] (::Base.Precompilation.var"#_precompilepkgs##36#_precompilepkgs##37"{Pipe, Bool, Dict{Base.PkgId, Base.PkgId}, Dict{Base.PkgId, Vector{Base.PkgId}}, String, Base.PkgId, Base.CacheFlags, Cmd})()
+    @ Base.Precompilation ./precompilation.jl:1071
+  [8] with_logstate(f::Base.Precompilation.var"#_precompilepkgs##36#_precompilepkgs##37"{Pipe, Bool, Dict{Base.PkgId, Base.PkgId}, Dict{Base.PkgId, Vector{Base.PkgId}}, String, Base.PkgId, Base.CacheFlags, Cmd}, logstate::Base.CoreLogging.LogState)
+    @ Base.CoreLogging ./logging/logging.jl:542
+  [9] with_logger
+    @ ./logging/logging.jl:653 [inlined]
+ [10] #_precompilepkgs##34
+    @ ./precompilation.jl:1065 [inlined]
+ [11] mkpidlock(f::Base.Precompilation.var"#_precompilepkgs##34#_precompilepkgs##35"{Pipe, Bool, Dict{Base.PkgId, Base.PkgId}, Dict{Base.PkgId, Vector{Base.PkgId}}, String, Base.PkgId, Base.CacheFlags, Cmd}, at::String, pid::Int32; kwopts::@Kwargs{stale_age::Int64, wait::Bool})
+    @ FileWatching.Pidfile /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:96
+ [12] #mkpidlock#7
+    @ /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:91 [inlined]
+ [13] trymkpidlock(::Function, ::Vararg{Any}; kwargs::@Kwargs{stale_age::Int64})
+    @ FileWatching.Pidfile /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:117
+ [14] #invokelatest_gr#232
+    @ ./reflection.jl:1297 [inlined]
+ [15] invokelatest_gr
+    @ ./reflection.jl:1289 [inlined]
+ [16] precompile_pkgs_maybe_cachefile_lock(f::Base.Precompilation.var"#_precompilepkgs##34#_precompilepkgs##35"{Pipe, Bool, Dict{Base.PkgId, Base.PkgId}, Dict{Base.PkgId, Vector{Base.PkgId}}, String, Base.PkgId, Base.CacheFlags, Cmd}, io::IOContext{IO}, print_lock::ReentrantLock, fancyprint::Bool, pkg_config::Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, pkgspidlocked::Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, String}, hascolor::Bool, parallel_limiter::Base.Semaphore, ignore_loaded::Bool, fullname::String)
+    @ Base.Precompilation ./precompilation.jl:1262
+ [17] macro expansion
+    @ ./timing.jl:461 [inlined]
+ [18] (::Base.Precompilation.var"#_precompilepkgs##30#_precompilepkgs##31"{Bool, Bool, Bool, Bool, Vector{Task}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, String}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, IOBuffer}, Base.Precompilation.var"#handle_interrupt#_precompilepkgs##17"{Base.RefValue{Bool}, String, Base.Event, ReentrantLock, IOContext{IO}}, Base.RefValue{Int64}, Base.RefValue{Int64}, Base.RefValue{Int64}, Base.Event, Base.Event, ReentrantLock, Vector{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, String}, Vector{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}}, Base.RefValue{Union{Nothing, String}}, Vector{Base.PkgId}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, Bool}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, Base.Event}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, Bool}, Vector{Base.PkgId}, Vector{Base.PkgId}, Base.Precompilation.var"#describe_pkg#_precompilepkgs##1"{Dict{Base.PkgId, Base.PkgId}, Base.Precompilation.var"#color_string#_precompilepkgs##0"{Bool}, Int64}, Dict{Base.PkgId, Base.PkgId}, Dict{Base.PkgId, Vector{Base.PkgId}}, Dict{Base.PkgId, Vector{String}}, Dict{Tuple{Base.PkgId, UInt128, String, String}, Bool}, Base.Precompilation.var"#color_string#_precompilepkgs##0"{Bool}, Bool, IOContext{IO}, Base.Semaphore, Bool, String, Vector{String}, Vector{Base.PkgId}, Base.PkgId, Base.CacheFlags, Cmd, Pair{Cmd, Base.CacheFlags}, Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}})()
+    @ Base.Precompilation ./precompilation.jl:1064
+ERROR: LoadError: failed process: Process(setenv(`/apps/julia/1.12.6/libexec/julia/lld -flavor gnu '' -shared -o /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_MQfBeT --whole-archive /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_9gQ05p --no-whole-archive -L/apps/julia/1.12.6/lib/julia -L/apps/julia/1.12.6/lib -ljulia -ljulia-internal`,["__LMOD_REF_COUNT_PATH=/apps/julia/1.12.6/bin:1;/apps/lib/libcurl/7.49.1/bin:1;/home/itaykadosh/.local/bin:1;/home/itaykadosh/bin:1;/apps/ufrc/bin:1;/opt/slurm/bin:1;/usr/local/bin:1;/usr/bin:1;/usr/local/sbin:1;/usr/sbin:1;/opt/puppetlabs/bin:1;/bin:1", "OMPI_MCA_plm_slurm_args=--external-launcher", "PATH=/apps/julia/1.12.6/libexec/julia:/apps/julia/1.12.6/bin:/apps/julia/1.12.6/bin:/apps/lib/libcurl/7.49.1/bin:/home/itaykadosh/.local/bin:/home/itaykadosh/bin:/apps/ufrc/bin:/opt/slurm/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/opt/puppetlabs/bin:/bin", "SLURM_TASKS_PER_NODE=1", "SLURM_NODEID=0", "SLURM_JOB_GID=4035", "LMOD_ROOT=/apps/lmod", "SLURM_JOB_NAME=itay-csets-gpu2", "SLURM_TRES_PER_TASK=cpu=2", "LD_LIBRARY_PATH=/apps/julia/1.12.6/lib/julia:/apps/julia/1.12.6/lib:/apps/julia/1.12.6/lib/julia:/apps/lib/libcurl/7.49.1/lib:/opt/slurm/lib64::"  …  "PKG_CONFIG_PATH=/apps/lib/libcurl/7.49.1/lib/pkgconfig", "SLURM_PROCID=0", "JULIA_CPU_TARGET=generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1);x86-64-v4,-rdrnd,base(1)", "I_MPI_HYDRA_BOOTSTRAP_EXEC_EXTRA_ARGS=--external-launcher", "__LMOD_REF_COUNT_PKG_CONFIG_PATH=/apps/lib/libcurl/7.49.1/lib/pkgconfig:1", "SLURM_CPUS_PER_TASK=2", "JULIA_HISTORY=/dev/null", "SLURM_NNODES=1", "LMOD_COLORIZE=yes", "OPENBLAS_MAIN_FREE=1"]), ProcessSignaled(7)) [0]
+
+Stacktrace:
+  [1] pipeline_error
+    @ ./process.jl:597 [inlined]
+  [2] run(::Cmd, ::Base.DevNull, ::Vararg{Any}; wait::Bool)
+    @ Base ./process.jl:512
+  [3] run
+    @ ./process.jl:509 [inlined]
+  [4] link_image (repeats 2 times)
+    @ ./linking.jl:151 [inlined]
+  [5] compilecache(pkg::Base.PkgId, path::String, internal_stderr::IO, internal_stdout::IO, keep_loaded_modules::Bool; flags::Cmd, cacheflags::Base.CacheFlags, reasons::Dict{String, Int64}, loadable_exts::Nothing)
+    @ Base ./loading.jl:3240
+  [6] (::Base.var"#__require_prelocked##0#__require_prelocked##1"{Base.PkgId, String, Dict{String, Int64}})()
+    @ Base ./loading.jl:2683
+  [7] mkpidlock(f::Base.var"#__require_prelocked##0#__require_prelocked##1"{Base.PkgId, String, Dict{String, Int64}}, at::String, pid::Int32; kwopts::@Kwargs{stale_age::Int64, wait::Bool})
+    @ FileWatching.Pidfile /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:96
+  [8] #mkpidlock#7
+    @ /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:91 [inlined]
+  [9] trymkpidlock(::Function, ::Vararg{Any}; kwargs::@Kwargs{stale_age::Int64})
+    @ FileWatching.Pidfile /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:117
+ [10] #invokelatest_gr#232
+    @ ./reflection.jl:1297 [inlined]
+ [11] invokelatest_gr
+    @ ./reflection.jl:1289 [inlined]
+ [12] maybe_cachefile_lock(f::Base.var"#__require_prelocked##0#__require_prelocked##1"{Base.PkgId, String, Dict{String, Int64}}, pkg::Base.PkgId, srcpath::String; stale_age::Int64)
+    @ Base ./loading.jl:3886
+ [13] maybe_cachefile_lock
+    @ ./loading.jl:3883 [inlined]
+ [14] __require_prelocked(pkg::Base.PkgId, env::String)
+    @ Base ./loading.jl:2669
+ [15] _require_prelocked(uuidkey::Base.PkgId, env::String)
+    @ Base ./loading.jl:2495
+ [16] macro expansion
+    @ ./loading.jl:2423 [inlined]
+ [17] macro expansion
+    @ ./lock.jl:376 [inlined]
+ [18] __require(into::Module, mod::Symbol)
+    @ Base ./loading.jl:2388
+ [19] require(into::Module, mod::Symbol)
+    @ Base ./loading.jl:2364
+ [20] include(mapexpr::Function, mod::Module, _path::String)
+    @ Base ./Base.jl:307
+ [21] top-level scope
+    @ /blue/fairbanksj/itaykadosh/gpu/csets/CSets.jl-gpu/gpu/hpg_bench2.jl:2
+ [22] include(mod::Module, _path::String)
+    @ Base ./Base.jl:306
+ [23] exec_options(opts::Base.JLOptions)
+    @ Base ./client.jl:317
+ [24] _start()
+    @ Base ./client.jl:550
+in expression starting at /blue/fairbanksj/itaykadosh/gpu/csets/CSets.jl-gpu/gpu/workloads.jl:6
+in expression starting at /blue/fairbanksj/itaykadosh/gpu/csets/CSets.jl-gpu/gpu/hpg_bench2.jl:2
+PLEASE submit a bug report to https://github.com/julialang/julia and include the crash backtrace.
+Stack dump:
+0.	Program arguments: /apps/julia/1.12.6/libexec/julia/lld -flavor gnu  -shared -o /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_FibH6S --whole-archive /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_5NEitn --no-whole-archive -L/apps/julia/1.12.6/lib/julia -L/apps/julia/1.12.6/lib -ljulia -ljulia-internal
+Stack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):
+0  libLLVM.so.18.1jl 0x0000146048828ac8 llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) + 40
+1  libLLVM.so.18.1jl 0x000014604882637c
+2  libc.so.6         0x000014604783fb30
+3  lld               0x0000000000676be1 void lld::elf::writeEhdr<llvm::object::ELFType<(llvm::endianness)1, true>>(unsigned char*, lld::elf::Partition&) + 17
+4  lld               0x00000000006de021
+5  lld               0x00000000006decf9 void lld::elf::writeResult<llvm::object::ELFType<(llvm::endianness)1, true>>() + 25
+6  lld               0x00000000005853f7 lld::elf::LinkerDriver::link(llvm::opt::InputArgList&) + 11879
+7  lld               0x000000000058649f lld::elf::LinkerDriver::linkerMain(llvm::ArrayRef<char const*>) + 3551
+8  lld               0x0000000000587d60 lld::elf::link(llvm::ArrayRef<char const*>, llvm::raw_ostream&, llvm::raw_ostream&, bool, bool) + 4560
+9  lld               0x0000000000474f12 lld::unsafeLldMain(llvm::ArrayRef<char const*>, llvm::raw_ostream&, llvm::raw_ostream&, llvm::ArrayRef<lld::DriverDef>, bool) + 690
+10 lld               0x00000000004748c1 lld_main(int, char**, llvm::ToolContext const&) + 609
+11 lld               0x0000000000472bd4 main + 84
+12 libc.so.6         0x000014604782a610
+13 libc.so.6         0x000014604782a6c0 __libc_start_main + 128
+14 lld               0x0000000000474153
+PLEASE submit a bug report to https://github.com/julialang/julia and include the crash backtrace.
+Stack dump:
+0.	Program arguments: /apps/julia/1.12.6/libexec/julia/lld -flavor gnu  -shared -o /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_CDmIds --whole-archive /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_d3THFC --no-whole-archive -L/apps/julia/1.12.6/lib/julia -L/apps/julia/1.12.6/lib -ljulia -ljulia-internal
+Stack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):
+0  libLLVM.so.18.1jl 0x00001460151e2ac8 llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) + 40
+1  libLLVM.so.18.1jl 0x00001460151e037c
+2  libc.so.6         0x000014601423fb30
+3  lld               0x0000000000676be1 void lld::elf::writeEhdr<llvm::object::ELFType<(llvm::endianness)1, true>>(unsigned char*, lld::elf::Partition&) + 17
+4  lld               0x00000000006de021
+5  lld               0x00000000006decf9 void lld::elf::writeResult<llvm::object::ELFType<(llvm::endianness)1, true>>() + 25
+6  lld               0x00000000005853f7 lld::elf::LinkerDriver::link(llvm::opt::InputArgList&) + 11879
+7  lld               0x000000000058649f lld::elf::LinkerDriver::linkerMain(llvm::ArrayRef<char const*>) + 3551
+8  lld               0x0000000000587d60 lld::elf::link(llvm::ArrayRef<char const*>, llvm::raw_ostream&, llvm::raw_ostream&, bool, bool) + 4560
+9  lld               0x0000000000474f12 lld::unsafeLldMain(llvm::ArrayRef<char const*>, llvm::raw_ostream&, llvm::raw_ostream&, llvm::ArrayRef<lld::DriverDef>, bool) + 690
+10 lld               0x00000000004748c1 lld_main(int, char**, llvm::ToolContext const&) + 609
+11 lld               0x0000000000472bd4 main + 84
+12 libc.so.6         0x000014601422a610
+13 libc.so.6         0x000014601422a6c0 __libc_start_main + 128
+14 lld               0x0000000000474153
+Precompiling packages...
+UNHANDLED TASK ERROR: failed process: Process(setenv(`/apps/julia/1.12.6/libexec/julia/lld -flavor gnu '' -shared -o /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_FibH6S --whole-archive /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_5NEitn --no-whole-archive -L/apps/julia/1.12.6/lib/julia -L/apps/julia/1.12.6/lib -ljulia -ljulia-internal`,["__LMOD_REF_COUNT_PATH=/apps/julia/1.12.6/bin:1;/apps/lib/libcurl/7.49.1/bin:1;/home/itaykadosh/.local/bin:1;/home/itaykadosh/bin:1;/apps/ufrc/bin:1;/opt/slurm/bin:1;/usr/local/bin:1;/usr/bin:1;/usr/local/sbin:1;/usr/sbin:1;/opt/puppetlabs/bin:1;/bin:1", "OMPI_MCA_plm_slurm_args=--external-launcher", "PATH=/apps/julia/1.12.6/libexec/julia:/apps/julia/1.12.6/bin:/apps/julia/1.12.6/bin:/apps/lib/libcurl/7.49.1/bin:/home/itaykadosh/.local/bin:/home/itaykadosh/bin:/apps/ufrc/bin:/opt/slurm/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/opt/puppetlabs/bin:/bin", "SLURM_TASKS_PER_NODE=1", "SLURM_NODEID=0", "SLURM_JOB_GID=4035", "LMOD_ROOT=/apps/lmod", "SLURM_JOB_NAME=itay-csets-gpu2", "SLURM_TRES_PER_TASK=cpu=2", "LD_LIBRARY_PATH=/apps/julia/1.12.6/lib/julia:/apps/julia/1.12.6/lib:/apps/julia/1.12.6/lib/julia:/apps/lib/libcurl/7.49.1/lib:/opt/slurm/lib64::"  …  "PKG_CONFIG_PATH=/apps/lib/libcurl/7.49.1/lib/pkgconfig", "SLURM_PROCID=0", "JULIA_CPU_TARGET=generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1);x86-64-v4,-rdrnd,base(1)", "I_MPI_HYDRA_BOOTSTRAP_EXEC_EXTRA_ARGS=--external-launcher", "__LMOD_REF_COUNT_PKG_CONFIG_PATH=/apps/lib/libcurl/7.49.1/lib/pkgconfig:1", "SLURM_CPUS_PER_TASK=2", "JULIA_HISTORY=/dev/null", "SLURM_NNODES=1", "LMOD_COLORIZE=yes", "OPENBLAS_MAIN_FREE=1"]), ProcessSignaled(7)) [0]
+
+Stacktrace:
+  [1] pipeline_error
+    @ ./process.jl:597 [inlined]
+  [2] run(::Cmd, ::Base.DevNull, ::Vararg{Any}; wait::Bool)
+    @ Base ./process.jl:512
+  [3] run
+    @ ./process.jl:509 [inlined]
+  [4] link_image (repeats 2 times)
+    @ ./linking.jl:151 [inlined]
+  [5] compilecache(pkg::Base.PkgId, path::String, internal_stderr::IO, internal_stdout::IO, keep_loaded_modules::Bool; flags::Cmd, cacheflags::Base.CacheFlags, reasons::Dict{String, Int64}, loadable_exts::Nothing)
+    @ Base ./loading.jl:3240
+  [6] compilecache
+    @ ./loading.jl:3193 [inlined]
+  [7] (::Base.Precompilation.var"#_precompilepkgs##36#_precompilepkgs##37"{Pipe, Bool, Dict{Base.PkgId, Base.PkgId}, Dict{Base.PkgId, Vector{Base.PkgId}}, String, Base.PkgId, Base.CacheFlags, Cmd})()
+    @ Base.Precompilation ./precompilation.jl:1071
+  [8] with_logstate(f::Base.Precompilation.var"#_precompilepkgs##36#_precompilepkgs##37"{Pipe, Bool, Dict{Base.PkgId, Base.PkgId}, Dict{Base.PkgId, Vector{Base.PkgId}}, String, Base.PkgId, Base.CacheFlags, Cmd}, logstate::Base.CoreLogging.LogState)
+    @ Base.CoreLogging ./logging/logging.jl:542
+  [9] with_logger
+    @ ./logging/logging.jl:653 [inlined]
+ [10] #_precompilepkgs##34
+    @ ./precompilation.jl:1065 [inlined]
+ [11] mkpidlock(f::Base.Precompilation.var"#_precompilepkgs##34#_precompilepkgs##35"{Pipe, Bool, Dict{Base.PkgId, Base.PkgId}, Dict{Base.PkgId, Vector{Base.PkgId}}, String, Base.PkgId, Base.CacheFlags, Cmd}, at::String, pid::Int32; kwopts::@Kwargs{stale_age::Int64, wait::Bool})
+    @ FileWatching.Pidfile /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:96
+ [12] #mkpidlock#7
+    @ /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:91 [inlined]
+ [13] trymkpidlock(::Function, ::Vararg{Any}; kwargs::@Kwargs{stale_age::Int64})
+    @ FileWatching.Pidfile /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:117
+ [14] #invokelatest_gr#232
+    @ ./reflection.jl:1297 [inlined]
+ [15] invokelatest_gr
+    @ ./reflection.jl:1289 [inlined]
+ [16] precompile_pkgs_maybe_cachefile_lock(f::Base.Precompilation.var"#_precompilepkgs##34#_precompilepkgs##35"{Pipe, Bool, Dict{Base.PkgId, Base.PkgId}, Dict{Base.PkgId, Vector{Base.PkgId}}, String, Base.PkgId, Base.CacheFlags, Cmd}, io::IOContext{IO}, print_lock::ReentrantLock, fancyprint::Bool, pkg_config::Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, pkgspidlocked::Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, String}, hascolor::Bool, parallel_limiter::Base.Semaphore, ignore_loaded::Bool, fullname::String)
+    @ Base.Precompilation ./precompilation.jl:1262
+ [17] macro expansion
+    @ ./timing.jl:461 [inlined]
+ [18] (::Base.Precompilation.var"#_precompilepkgs##30#_precompilepkgs##31"{Bool, Bool, Bool, Bool, Vector{Task}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, String}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, IOBuffer}, Base.Precompilation.var"#handle_interrupt#_precompilepkgs##17"{Base.RefValue{Bool}, String, Base.Event, ReentrantLock, IOContext{IO}}, Base.RefValue{Int64}, Base.RefValue{Int64}, Base.RefValue{Int64}, Base.Event, Base.Event, ReentrantLock, Vector{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, String}, Vector{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}}, Base.RefValue{Union{Nothing, String}}, Vector{Base.PkgId}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, Bool}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, Base.Event}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, Bool}, Vector{Base.PkgId}, Vector{Base.PkgId}, Base.Precompilation.var"#describe_pkg#_precompilepkgs##1"{Dict{Base.PkgId, Base.PkgId}, Base.Precompilation.var"#color_string#_precompilepkgs##0"{Bool}, Int64}, Dict{Base.PkgId, Base.PkgId}, Dict{Base.PkgId, Vector{Base.PkgId}}, Dict{Base.PkgId, Vector{String}}, Dict{Tuple{Base.PkgId, UInt128, String, String}, Bool}, Base.Precompilation.var"#color_string#_precompilepkgs##0"{Bool}, Bool, IOContext{IO}, Base.Semaphore, Bool, String, Vector{String}, Vector{Base.PkgId}, Base.PkgId, Base.CacheFlags, Cmd, Pair{Cmd, Base.CacheFlags}, Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}})()
+    @ Base.Precompilation ./precompilation.jl:1064
+ERROR: LoadError: failed process: Process(setenv(`/apps/julia/1.12.6/libexec/julia/lld -flavor gnu '' -shared -o /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_CDmIds --whole-archive /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_d3THFC --no-whole-archive -L/apps/julia/1.12.6/lib/julia -L/apps/julia/1.12.6/lib -ljulia -ljulia-internal`,["__LMOD_REF_COUNT_PATH=/apps/julia/1.12.6/bin:1;/apps/lib/libcurl/7.49.1/bin:1;/home/itaykadosh/.local/bin:1;/home/itaykadosh/bin:1;/apps/ufrc/bin:1;/opt/slurm/bin:1;/usr/local/bin:1;/usr/bin:1;/usr/local/sbin:1;/usr/sbin:1;/opt/puppetlabs/bin:1;/bin:1", "OMPI_MCA_plm_slurm_args=--external-launcher", "PATH=/apps/julia/1.12.6/libexec/julia:/apps/julia/1.12.6/bin:/apps/julia/1.12.6/bin:/apps/lib/libcurl/7.49.1/bin:/home/itaykadosh/.local/bin:/home/itaykadosh/bin:/apps/ufrc/bin:/opt/slurm/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/opt/puppetlabs/bin:/bin", "SLURM_TASKS_PER_NODE=1", "SLURM_NODEID=0", "SLURM_JOB_GID=4035", "LMOD_ROOT=/apps/lmod", "SLURM_JOB_NAME=itay-csets-gpu2", "SLURM_TRES_PER_TASK=cpu=2", "LD_LIBRARY_PATH=/apps/julia/1.12.6/lib/julia:/apps/julia/1.12.6/lib:/apps/julia/1.12.6/lib/julia:/apps/lib/libcurl/7.49.1/lib:/opt/slurm/lib64::"  …  "PKG_CONFIG_PATH=/apps/lib/libcurl/7.49.1/lib/pkgconfig", "SLURM_PROCID=0", "JULIA_CPU_TARGET=generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1);x86-64-v4,-rdrnd,base(1)", "I_MPI_HYDRA_BOOTSTRAP_EXEC_EXTRA_ARGS=--external-launcher", "__LMOD_REF_COUNT_PKG_CONFIG_PATH=/apps/lib/libcurl/7.49.1/lib/pkgconfig:1", "SLURM_CPUS_PER_TASK=2", "JULIA_HISTORY=/dev/null", "SLURM_NNODES=1", "LMOD_COLORIZE=yes", "OPENBLAS_MAIN_FREE=1"]), ProcessSignaled(7)) [0]
+
+Stacktrace:
+  [1] pipeline_error
+    @ ./process.jl:597 [inlined]
+  [2] run(::Cmd, ::Base.DevNull, ::Vararg{Any}; wait::Bool)
+    @ Base ./process.jl:512
+  [3] run
+    @ ./process.jl:509 [inlined]
+  [4] link_image (repeats 2 times)
+    @ ./linking.jl:151 [inlined]
+  [5] compilecache(pkg::Base.PkgId, path::String, internal_stderr::IO, internal_stdout::IO, keep_loaded_modules::Bool; flags::Cmd, cacheflags::Base.CacheFlags, reasons::Dict{String, Int64}, loadable_exts::Nothing)
+    @ Base ./loading.jl:3240
+  [6] (::Base.var"#__require_prelocked##0#__require_prelocked##1"{Base.PkgId, String, Dict{String, Int64}})()
+    @ Base ./loading.jl:2683
+  [7] mkpidlock(f::Base.var"#__require_prelocked##0#__require_prelocked##1"{Base.PkgId, String, Dict{String, Int64}}, at::String, pid::Int32; kwopts::@Kwargs{stale_age::Int64, wait::Bool})
+    @ FileWatching.Pidfile /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:96
+  [8] #mkpidlock#7
+    @ /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:91 [inlined]
+  [9] trymkpidlock(::Function, ::Vararg{Any}; kwargs::@Kwargs{stale_age::Int64})
+    @ FileWatching.Pidfile /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:117
+ [10] #invokelatest_gr#232
+    @ ./reflection.jl:1297 [inlined]
+ [11] invokelatest_gr
+    @ ./reflection.jl:1289 [inlined]
+ [12] maybe_cachefile_lock(f::Base.var"#__require_prelocked##0#__require_prelocked##1"{Base.PkgId, String, Dict{String, Int64}}, pkg::Base.PkgId, srcpath::String; stale_age::Int64)
+    @ Base ./loading.jl:3886
+ [13] maybe_cachefile_lock
+    @ ./loading.jl:3883 [inlined]
+ [14] __require_prelocked(pkg::Base.PkgId, env::String)
+    @ Base ./loading.jl:2669
+ [15] _require_prelocked(uuidkey::Base.PkgId, env::String)
+    @ Base ./loading.jl:2495
+ [16] macro expansion
+    @ ./loading.jl:2423 [inlined]
+ [17] macro expansion
+    @ ./lock.jl:376 [inlined]
+ [18] __require(into::Module, mod::Symbol)
+    @ Base ./loading.jl:2388
+ [19] require(into::Module, mod::Symbol)
+    @ Base ./loading.jl:2364
+ [20] include(mapexpr::Function, mod::Module, _path::String)
+    @ Base ./Base.jl:307
+ [21] top-level scope
+    @ /blue/fairbanksj/itaykadosh/gpu/csets/CSets.jl-gpu/gpu/hpg_bench2.jl:2
+ [22] include(mod::Module, _path::String)
+    @ Base ./Base.jl:306
+ [23] exec_options(opts::Base.JLOptions)
+    @ Base ./client.jl:317
+ [24] _start()
+    @ Base ./client.jl:550
+in expression starting at /blue/fairbanksj/itaykadosh/gpu/csets/CSets.jl-gpu/gpu/workloads.jl:6
+in expression starting at /blue/fairbanksj/itaykadosh/gpu/csets/CSets.jl-gpu/gpu/hpg_bench2.jl:2
+PLEASE submit a bug report to https://github.com/julialang/julia and include the crash backtrace.
+Stack dump:
+0.	Program arguments: /apps/julia/1.12.6/libexec/julia/lld -flavor gnu  -shared -o /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_ztYlcT --whole-archive /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_dIDYVP --no-whole-archive -L/apps/julia/1.12.6/lib/julia -L/apps/julia/1.12.6/lib -ljulia -ljulia-internal
+Stack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):
+0  libLLVM.so.18.1jl 0x000014fec121eac8 llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) + 40
+1  libLLVM.so.18.1jl 0x000014fec121c37c
+2  libc.so.6         0x000014fec023fb30
+3  lld               0x0000000000676be1 void lld::elf::writeEhdr<llvm::object::ELFType<(llvm::endianness)1, true>>(unsigned char*, lld::elf::Partition&) + 17
+4  lld               0x00000000006de021
+5  lld               0x00000000006decf9 void lld::elf::writeResult<llvm::object::ELFType<(llvm::endianness)1, true>>() + 25
+6  lld               0x00000000005853f7 lld::elf::LinkerDriver::link(llvm::opt::InputArgList&) + 11879
+7  lld               0x000000000058649f lld::elf::LinkerDriver::linkerMain(llvm::ArrayRef<char const*>) + 3551
+8  lld               0x0000000000587d60 lld::elf::link(llvm::ArrayRef<char const*>, llvm::raw_ostream&, llvm::raw_ostream&, bool, bool) + 4560
+9  lld               0x0000000000474f12 lld::unsafeLldMain(llvm::ArrayRef<char const*>, llvm::raw_ostream&, llvm::raw_ostream&, llvm::ArrayRef<lld::DriverDef>, bool) + 690
+10 lld               0x00000000004748c1 lld_main(int, char**, llvm::ToolContext const&) + 609
+11 lld               0x0000000000472bd4 main + 84
+12 libc.so.6         0x000014fec022a610
+13 libc.so.6         0x000014fec022a6c0 __libc_start_main + 128
+14 lld               0x0000000000474153
+PLEASE submit a bug report to https://github.com/julialang/julia and include the crash backtrace.
+Stack dump:
+0.	Program arguments: /apps/julia/1.12.6/libexec/julia/lld -flavor gnu  -shared -o /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_ZRyUPm --whole-archive /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_QSlnuw --no-whole-archive -L/apps/julia/1.12.6/lib/julia -L/apps/julia/1.12.6/lib -ljulia -ljulia-internal
+Stack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):
+0  libLLVM.so.18.1jl 0x0000150ce6080ac8 llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) + 40
+1  libLLVM.so.18.1jl 0x0000150ce607e37c
+2  libc.so.6         0x0000150ce503fb30
+3  lld               0x0000000000676be1 void lld::elf::writeEhdr<llvm::object::ELFType<(llvm::endianness)1, true>>(unsigned char*, lld::elf::Partition&) + 17
+4  lld               0x00000000006de021
+5  lld               0x00000000006decf9 void lld::elf::writeResult<llvm::object::ELFType<(llvm::endianness)1, true>>() + 25
+6  lld               0x00000000005853f7 lld::elf::LinkerDriver::link(llvm::opt::InputArgList&) + 11879
+7  lld               0x000000000058649f lld::elf::LinkerDriver::linkerMain(llvm::ArrayRef<char const*>) + 3551
+8  lld               0x0000000000587d60 lld::elf::link(llvm::ArrayRef<char const*>, llvm::raw_ostream&, llvm::raw_ostream&, bool, bool) + 4560
+9  lld               0x0000000000474f12 lld::unsafeLldMain(llvm::ArrayRef<char const*>, llvm::raw_ostream&, llvm::raw_ostream&, llvm::ArrayRef<lld::DriverDef>, bool) + 690
+10 lld               0x00000000004748c1 lld_main(int, char**, llvm::ToolContext const&) + 609
+11 lld               0x0000000000472bd4 main + 84
+12 libc.so.6         0x0000150ce502a610
+13 libc.so.6         0x0000150ce502a6c0 __libc_start_main + 128
+14 lld               0x0000000000474153
+Precompiling packages...
+UNHANDLED TASK ERROR: failed process: Process(setenv(`/apps/julia/1.12.6/libexec/julia/lld -flavor gnu '' -shared -o /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_ztYlcT --whole-archive /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_dIDYVP --no-whole-archive -L/apps/julia/1.12.6/lib/julia -L/apps/julia/1.12.6/lib -ljulia -ljulia-internal`,["__LMOD_REF_COUNT_PATH=/apps/julia/1.12.6/bin:1;/apps/lib/libcurl/7.49.1/bin:1;/home/itaykadosh/.local/bin:1;/home/itaykadosh/bin:1;/apps/ufrc/bin:1;/opt/slurm/bin:1;/usr/local/bin:1;/usr/bin:1;/usr/local/sbin:1;/usr/sbin:1;/opt/puppetlabs/bin:1;/bin:1", "OMPI_MCA_plm_slurm_args=--external-launcher", "PATH=/apps/julia/1.12.6/libexec/julia:/apps/julia/1.12.6/bin:/apps/julia/1.12.6/bin:/apps/lib/libcurl/7.49.1/bin:/home/itaykadosh/.local/bin:/home/itaykadosh/bin:/apps/ufrc/bin:/opt/slurm/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/opt/puppetlabs/bin:/bin", "SLURM_TASKS_PER_NODE=1", "SLURM_NODEID=0", "SLURM_JOB_GID=4035", "LMOD_ROOT=/apps/lmod", "SLURM_JOB_NAME=itay-csets-gpu2", "SLURM_TRES_PER_TASK=cpu=2", "LD_LIBRARY_PATH=/apps/julia/1.12.6/lib/julia:/apps/julia/1.12.6/lib:/apps/julia/1.12.6/lib/julia:/apps/lib/libcurl/7.49.1/lib:/opt/slurm/lib64::"  …  "PKG_CONFIG_PATH=/apps/lib/libcurl/7.49.1/lib/pkgconfig", "SLURM_PROCID=0", "JULIA_CPU_TARGET=generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1);x86-64-v4,-rdrnd,base(1)", "I_MPI_HYDRA_BOOTSTRAP_EXEC_EXTRA_ARGS=--external-launcher", "__LMOD_REF_COUNT_PKG_CONFIG_PATH=/apps/lib/libcurl/7.49.1/lib/pkgconfig:1", "SLURM_CPUS_PER_TASK=2", "JULIA_HISTORY=/dev/null", "SLURM_NNODES=1", "LMOD_COLORIZE=yes", "OPENBLAS_MAIN_FREE=1"]), ProcessSignaled(7)) [0]
+
+Stacktrace:
+  [1] pipeline_error
+    @ ./process.jl:597 [inlined]
+  [2] run(::Cmd, ::Base.DevNull, ::Vararg{Any}; wait::Bool)
+    @ Base ./process.jl:512
+  [3] run
+    @ ./process.jl:509 [inlined]
+  [4] link_image (repeats 2 times)
+    @ ./linking.jl:151 [inlined]
+  [5] compilecache(pkg::Base.PkgId, path::String, internal_stderr::IO, internal_stdout::IO, keep_loaded_modules::Bool; flags::Cmd, cacheflags::Base.CacheFlags, reasons::Dict{String, Int64}, loadable_exts::Nothing)
+    @ Base ./loading.jl:3240
+  [6] compilecache
+    @ ./loading.jl:3193 [inlined]
+  [7] (::Base.Precompilation.var"#_precompilepkgs##36#_precompilepkgs##37"{Pipe, Bool, Dict{Base.PkgId, Base.PkgId}, Dict{Base.PkgId, Vector{Base.PkgId}}, String, Base.PkgId, Base.CacheFlags, Cmd})()
+    @ Base.Precompilation ./precompilation.jl:1071
+  [8] with_logstate(f::Base.Precompilation.var"#_precompilepkgs##36#_precompilepkgs##37"{Pipe, Bool, Dict{Base.PkgId, Base.PkgId}, Dict{Base.PkgId, Vector{Base.PkgId}}, String, Base.PkgId, Base.CacheFlags, Cmd}, logstate::Base.CoreLogging.LogState)
+    @ Base.CoreLogging ./logging/logging.jl:542
+  [9] with_logger
+    @ ./logging/logging.jl:653 [inlined]
+ [10] #_precompilepkgs##34
+    @ ./precompilation.jl:1065 [inlined]
+ [11] mkpidlock(f::Base.Precompilation.var"#_precompilepkgs##34#_precompilepkgs##35"{Pipe, Bool, Dict{Base.PkgId, Base.PkgId}, Dict{Base.PkgId, Vector{Base.PkgId}}, String, Base.PkgId, Base.CacheFlags, Cmd}, at::String, pid::Int32; kwopts::@Kwargs{stale_age::Int64, wait::Bool})
+    @ FileWatching.Pidfile /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:96
+ [12] #mkpidlock#7
+    @ /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:91 [inlined]
+ [13] trymkpidlock(::Function, ::Vararg{Any}; kwargs::@Kwargs{stale_age::Int64})
+    @ FileWatching.Pidfile /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:117
+ [14] #invokelatest_gr#232
+    @ ./reflection.jl:1297 [inlined]
+ [15] invokelatest_gr
+    @ ./reflection.jl:1289 [inlined]
+ [16] precompile_pkgs_maybe_cachefile_lock(f::Base.Precompilation.var"#_precompilepkgs##34#_precompilepkgs##35"{Pipe, Bool, Dict{Base.PkgId, Base.PkgId}, Dict{Base.PkgId, Vector{Base.PkgId}}, String, Base.PkgId, Base.CacheFlags, Cmd}, io::IOContext{IO}, print_lock::ReentrantLock, fancyprint::Bool, pkg_config::Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, pkgspidlocked::Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, String}, hascolor::Bool, parallel_limiter::Base.Semaphore, ignore_loaded::Bool, fullname::String)
+    @ Base.Precompilation ./precompilation.jl:1262
+ [17] macro expansion
+    @ ./timing.jl:461 [inlined]
+ [18] (::Base.Precompilation.var"#_precompilepkgs##30#_precompilepkgs##31"{Bool, Bool, Bool, Bool, Vector{Task}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, String}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, IOBuffer}, Base.Precompilation.var"#handle_interrupt#_precompilepkgs##17"{Base.RefValue{Bool}, String, Base.Event, ReentrantLock, IOContext{IO}}, Base.RefValue{Int64}, Base.RefValue{Int64}, Base.RefValue{Int64}, Base.Event, Base.Event, ReentrantLock, Vector{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, String}, Vector{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}}, Base.RefValue{Union{Nothing, String}}, Vector{Base.PkgId}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, Bool}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, Base.Event}, Dict{Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}, Bool}, Vector{Base.PkgId}, Vector{Base.PkgId}, Base.Precompilation.var"#describe_pkg#_precompilepkgs##1"{Dict{Base.PkgId, Base.PkgId}, Base.Precompilation.var"#color_string#_precompilepkgs##0"{Bool}, Int64}, Dict{Base.PkgId, Base.PkgId}, Dict{Base.PkgId, Vector{Base.PkgId}}, Dict{Base.PkgId, Vector{String}}, Dict{Tuple{Base.PkgId, UInt128, String, String}, Bool}, Base.Precompilation.var"#color_string#_precompilepkgs##0"{Bool}, Bool, IOContext{IO}, Base.Semaphore, Bool, String, Vector{String}, Vector{Base.PkgId}, Base.PkgId, Base.CacheFlags, Cmd, Pair{Cmd, Base.CacheFlags}, Tuple{Base.PkgId, Pair{Cmd, Base.CacheFlags}}})()
+    @ Base.Precompilation ./precompilation.jl:1064
+ERROR: LoadError: failed process: Process(setenv(`/apps/julia/1.12.6/libexec/julia/lld -flavor gnu '' -shared -o /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_ZRyUPm --whole-archive /blue/fairbanksj/itaykadosh/gpu/rounds/depot/compiled/v1.12/CSets/jl_QSlnuw --no-whole-archive -L/apps/julia/1.12.6/lib/julia -L/apps/julia/1.12.6/lib -ljulia -ljulia-internal`,["__LMOD_REF_COUNT_PATH=/apps/julia/1.12.6/bin:1;/apps/lib/libcurl/7.49.1/bin:1;/home/itaykadosh/.local/bin:1;/home/itaykadosh/bin:1;/apps/ufrc/bin:1;/opt/slurm/bin:1;/usr/local/bin:1;/usr/bin:1;/usr/local/sbin:1;/usr/sbin:1;/opt/puppetlabs/bin:1;/bin:1", "OMPI_MCA_plm_slurm_args=--external-launcher", "PATH=/apps/julia/1.12.6/libexec/julia:/apps/julia/1.12.6/bin:/apps/julia/1.12.6/bin:/apps/lib/libcurl/7.49.1/bin:/home/itaykadosh/.local/bin:/home/itaykadosh/bin:/apps/ufrc/bin:/opt/slurm/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/opt/puppetlabs/bin:/bin", "SLURM_TASKS_PER_NODE=1", "SLURM_NODEID=0", "SLURM_JOB_GID=4035", "LMOD_ROOT=/apps/lmod", "SLURM_JOB_NAME=itay-csets-gpu2", "SLURM_TRES_PER_TASK=cpu=2", "LD_LIBRARY_PATH=/apps/julia/1.12.6/lib/julia:/apps/julia/1.12.6/lib:/apps/julia/1.12.6/lib/julia:/apps/lib/libcurl/7.49.1/lib:/opt/slurm/lib64::"  …  "PKG_CONFIG_PATH=/apps/lib/libcurl/7.49.1/lib/pkgconfig", "SLURM_PROCID=0", "JULIA_CPU_TARGET=generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1);x86-64-v4,-rdrnd,base(1)", "I_MPI_HYDRA_BOOTSTRAP_EXEC_EXTRA_ARGS=--external-launcher", "__LMOD_REF_COUNT_PKG_CONFIG_PATH=/apps/lib/libcurl/7.49.1/lib/pkgconfig:1", "SLURM_CPUS_PER_TASK=2", "JULIA_HISTORY=/dev/null", "SLURM_NNODES=1", "LMOD_COLORIZE=yes", "OPENBLAS_MAIN_FREE=1"]), ProcessSignaled(7)) [0]
+
+Stacktrace:
+  [1] pipeline_error
+    @ ./process.jl:597 [inlined]
+  [2] run(::Cmd, ::Base.DevNull, ::Vararg{Any}; wait::Bool)
+    @ Base ./process.jl:512
+  [3] run
+    @ ./process.jl:509 [inlined]
+  [4] link_image (repeats 2 times)
+    @ ./linking.jl:151 [inlined]
+  [5] compilecache(pkg::Base.PkgId, path::String, internal_stderr::IO, internal_stdout::IO, keep_loaded_modules::Bool; flags::Cmd, cacheflags::Base.CacheFlags, reasons::Dict{String, Int64}, loadable_exts::Nothing)
+    @ Base ./loading.jl:3240
+  [6] (::Base.var"#__require_prelocked##0#__require_prelocked##1"{Base.PkgId, String, Dict{String, Int64}})()
+    @ Base ./loading.jl:2683
+  [7] mkpidlock(f::Base.var"#__require_prelocked##0#__require_prelocked##1"{Base.PkgId, String, Dict{String, Int64}}, at::String, pid::Int32; kwopts::@Kwargs{stale_age::Int64, wait::Bool})
+    @ FileWatching.Pidfile /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:96
+  [8] #mkpidlock#7
+    @ /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:91 [inlined]
+  [9] trymkpidlock(::Function, ::Vararg{Any}; kwargs::@Kwargs{stale_age::Int64})
+    @ FileWatching.Pidfile /apps/julia/1.12.6/share/julia/stdlib/v1.12/FileWatching/src/pidfile.jl:117
+ [10] #invokelatest_gr#232
+    @ ./reflection.jl:1297 [inlined]
+ [11] invokelatest_gr
+    @ ./reflection.jl:1289 [inlined]
+ [12] maybe_cachefile_lock(f::Base.var"#__require_prelocked##0#__require_prelocked##1"{Base.PkgId, String, Dict{String, Int64}}, pkg::Base.PkgId, srcpath::String; stale_age::Int64)
+    @ Base ./loading.jl:3886
+ [13] maybe_cachefile_lock
+    @ ./loading.jl:3883 [inlined]
+ [14] __require_prelocked(pkg::Base.PkgId, env::String)
+    @ Base ./loading.jl:2669
+ [15] _require_prelocked(uuidkey::Base.PkgId, env::String)
+    @ Base ./loading.jl:2495
+ [16] macro expansion
+    @ ./loading.jl:2423 [inlined]
+ [17] macro expansion
+    @ ./lock.jl:376 [inlined]
+ [18] __require(into::Module, mod::Symbol)
+    @ Base ./loading.jl:2388
+ [19] require(into::Module, mod::Symbol)
+    @ Base ./loading.jl:2364
+ [20] include(mapexpr::Function, mod::Module, _path::String)
+    @ Base ./Base.jl:307
+ [21] top-level scope
+    @ /blue/fairbanksj/itaykadosh/gpu/csets/CSets.jl-gpu/gpu/hpg_bench2.jl:2
+ [22] include(mod::Module, _path::String)
+    @ Base ./Base.jl:306
+ [23] exec_options(opts::Base.JLOptions)
+    @ Base ./client.jl:317
+ [24] _start()
+    @ Base ./client.jl:550
+in expression starting at /blue/fairbanksj/itaykadosh/gpu/csets/CSets.jl-gpu/gpu/workloads.jl:6
+in expression starting at /blue/fairbanksj/itaykadosh/gpu/csets/CSets.jl-gpu/gpu/hpg_bench2.jl:2
+DONE

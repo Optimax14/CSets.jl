@@ -1,0 +1,4 @@
+name, memory.total [MiB]
+NVIDIA RTX PRO 6000 Blackwell Server Edition, 97887 MiB
+pk3-n20000	24 targets (11 sat)	cpu=7.0828	levelsync cached=0.6875 uncached=0.8913	batched one pass=0.1623	contract cached=2.0373 uncached=2.1248 wide=0	x(batched)=43.6326	x(best)=43.6326	true
+[2026-10-27T20:57:09.129] error: *** JOB 48016084 ON c0803a-s21 CANCELLED AT 2026-10-27T20:57:09 DUE to SIGNAL Terminated ***

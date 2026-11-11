@@ -1,0 +1,42 @@
+name, memory.total [MiB]
+NVIDIA RTX PRO 6000 Blackwell Server Edition, 97887 MiB
+pk4-n20000-K5	budget=0	1.2135	0.0706	17.1942	true	sat=true rounds=184 kern=0.0524
+pk4-n20000-K5	budget=16384	1.2135	0.0709	17.1062	true	sat=true rounds=184 kern=0.0518
+pk6-n5000-K7	budget=0	22.1178	0.6226	35.5236	true	sat=true rounds=178 kern=0.5771
+pk6-n5000-K7	budget=16384	22.1178	0.6196	35.6941	true	sat=true rounds=180 kern=0.5703
+pk5-n20000-K6	budget=0	7.7721	0.1952	39.813	true	sat=true rounds=192 kern=0.1676
+pk5-n20000-K6	budget=16384	7.7721	0.1954	39.7828	true	sat=true rounds=192 kern=0.1676
+pk3-n5000-G30	budget=0	13.1786	0.1966	67.0285	true	sat=true rounds=118 kern=0.1805
+pk3-n5000-G30	budget=16384	13.1786	0.2931	44.9578	true	sat=true rounds=120 kern=0.2764
+pk4-n1000-G40	budget=0	47.1682	1.0851	43.4695	true	sat=true rounds=119 kern=1.0626
+pk4-n1000-G40	budget=16384	47.1682	0.6863	68.7301	true	sat=true rounds=123 kern=0.6622
+pk4-n3000-G40	budget=0	120.5021	1.6888	71.3537	true	sat=true rounds=119 kern=1.6569
+pk4-n3000-G40	budget=16384	120.5021	1.85	65.1366	true	sat=true rounds=125 kern=1.8154
+pk5-n1000-G60	budget=0	11.6724	7.0403	1.6579	true	sat=false rounds=3 kern=7.0394
+pk5-n1000-G60	budget=16384	11.6724	5.9838	1.9507	true	sat=false rounds=5 kern=5.9753
+grid4x100000-K3	mate	3.2908	0.0926	35.5428	true	local=0.0397 contract=0.046 jumps=0.0119 witness=0.0068 maxL=81 MB=497 rounds=119
+grid4x100000-K3	wyllie	3.2908	0.1183	27.8232	true	local=0.0369 contract=0.0744 jumps=0.044 witness=0.0068 maxL=81 MB=497 rounds=59
+grid5x2000-K3	mate	0.1814	0.013	13.9232	true	local=0.0031 contract=0.0094 jumps=0.0056 witness=0.0005 maxL=243 MB=71 rounds=75
+grid5x2000-K3	wyllie	0.1814	0.0114	15.8897	true	local=0.0051 contract=0.0057 jumps=0.003 witness=0.0006 maxL=243 MB=71 rounds=33
+grid6x1000-K3	mate	0.1784	0.0763	2.3372	true	local=0.0053 contract=0.0702 jumps=0.0348 witness=0.0008 maxL=1458 MB=665 rounds=73
+grid6x1000-K3	wyllie	0.1784	0.1177	1.5163	true	local=0.0053 contract=0.1115 jumps=0.0864 witness=0.0008 maxL=1458 MB=665 rounds=34
+grid5x1000-K4	mate	0.4543	0.0697	6.5159	true	local=0.0086 contract=0.0604 jumps=0.0448 witness=0.0007 maxL=1024 MB=627 rounds=72
+grid5x1000-K4	wyllie	0.4543	0.2015	2.2546	true	local=0.0085 contract=0.1923 jumps=0.1833 witness=0.0007 maxL=1024 MB=627 rounds=31
+grid6x4000-K3	mate	0.962	0.1387	6.9349	true	local=0.0174 contract=0.1174 jumps=0.0608 witness=0.0039 maxL=1458 MB=2670 rounds=107
+grid6x4000-K3	wyllie	0.962	0.5346	1.7996	true	local=0.0172 contract=0.5134 jumps=0.4662 witness=0.0039 maxL=1458 MB=2670 rounds=38
+grid7x1000-K3	mate	0.7727	0.5872	1.3159	true	local=0.0145 contract=0.5693 jumps=0.4144 witness=0.0034 maxL=4374 MB=5260 rounds=87
+grid7x1000-K3	wyllie	0.7727	1.3834	0.5586	true	local=0.0147 contract=1.3657 jumps=1.2422 witness=0.0029 maxL=4374 MB=5260 rounds=33
+miter-eq-10000	MF	0.2972	0.2608	0.0778	0.0226	search x11.5429	e2e(uncached) x1.4033	e2e(cached prep) x1.7447	true
+miter-bug-10000	MF	0.0869	0.276	0.0128	0.0238	search x11.6151	e2e(uncached) x2.9391	e2e(cached prep) x3.2786	true
+miter-eq-10000	MMD	0.0402	0.2549	0.0131	0.0113	search x22.5819	e2e(uncached) x4.5705	e2e(cached prep) x5.7285	true
+miter-bug-10000	MMD	0.0326	0.276	0.0126	0.0155	search x17.8138	e2e(uncached) x5.078	e2e(cached prep) x6.4108	true
+miter-eq-30000	MF	0.455	0.7924	0.0496	0.0499	search x15.8772	e2e(uncached) x2.2497	e2e(cached prep) x2.4705	true
+miter-bug-30000	MF	0.3418	0.9044	0.0454	0.0444	search x20.3777	e2e(uncached) x2.8871	e2e(cached prep) x3.2268	true
+miter-eq-30000	MMD	0.1824	0.7443	0.0551	0.0338	search x21.9917	e2e(uncached) x3.4149	e2e(cached prep) x4.2854	true
+miter-bug-30000	MMD	0.1471	0.8211	0.0391	0.0396	search x20.7438	e2e(uncached) x4.2891	e2e(cached prep) x5.1872	true
+miter-eq-100000	MF	1.935	2.8842	0.3798	0.139	search x20.7542	e2e(uncached) x1.964	e2e(cached prep) x2.3236	true
+miter-bug-100000	MF	1.6022	2.8709	0.1687	0.1593	search x18.0172	e2e(uncached) x2.3174	e2e(cached prep) x2.5393	true
+miter-eq-100000	MMD	0.8557	2.8058	0.1559	0.105	search x26.7133	e2e(uncached) x3.2789	e2e(cached prep) x3.8112	true
+miter-bug-100000	MMD	0.7219	2.7603	0.1603	0.141	search x19.5759	e2e(uncached) x3.4032	e2e(cached prep) x4.0354	true
+pk3-n20000	24 targets (11 sat)	cpu=6.9907	levelsync cached=0.7629 uncached=0.9207	contract cached=0.6887 uncached=1.0451	x(best cached)=10.1502	true
+[2026-10-27T20:29:37.415] error: *** JOB 48012108 ON c0803a-s21 CANCELLED AT 2026-10-27T20:29:37 DUE to SIGNAL Terminated ***

@@ -1,0 +1,29 @@
+name, memory.total [MiB]
+NVIDIA RTX PRO 6000 Blackwell Server Edition, 97887 MiB
+grid4x100000-K3	mate	3.7798	1.1796	3.2042	true	local=0.0397 contract=1.1226 jumps=0.0213 witness=0.0173 maxL=81 MB=497 rounds=140
+grid4x100000-K3	wyllie	3.7798	1.2228	3.0911	true	local=0.0368 contract=1.1699 jumps=0.044 witness=0.016 maxL=81 MB=497 rounds=59
+grid5x2000-K3	mate	0.2277	0.0996	2.2876	true	local=0.0033 contract=0.0954 jumps=0.0028 witness=0.0008 maxL=243 MB=71 rounds=102
+grid5x2000-K3	wyllie	0.2277	0.0972	2.3429	true	local=0.0033 contract=0.0931 jumps=0.0031 witness=0.0008 maxL=243 MB=71 rounds=33
+grid6x1000-K3	mate	0.1923	0.4854	0.3962	true	local=0.0054 contract=0.479 jumps=0.0367 witness=0.0009 maxL=1458 MB=665 rounds=116
+grid6x1000-K3	wyllie	0.1923	0.59	0.3259	true	local=0.0053 contract=0.5837 jumps=0.0859 witness=0.0009 maxL=1458 MB=665 rounds=34
+grid5x1000-K4	mate	0.4675	0.475	0.9841	true	local=0.0089 contract=0.4652 jumps=0.0432 witness=0.0008 maxL=1024 MB=627 rounds=109
+grid5x1000-K4	wyllie	0.4675	0.63	0.742	true	local=0.0086 contract=0.6205 jumps=0.182 witness=0.0008 maxL=1024 MB=627 rounds=31
+grid6x4000-K3	mate	1.0028	2.1466	0.4671	true	local=0.0182 contract=2.1239 jumps=0.0725 witness=0.0045 maxL=1458 MB=2670 rounds=150
+grid6x4000-K3	wyllie	1.0028	2.4791	0.4045	true	local=0.0176 contract=2.457 jumps=0.4621 witness=0.0045 maxL=1458 MB=2670 rounds=38
+grid7x1000-K3	mate	0.5899	1.912	0.3085	true	local=0.0185 contract=1.8904 jumps=0.406 witness=0.0031 maxL=4374 MB=5260 rounds=124
+grid7x1000-K3	wyllie	0.5899	2.7405	0.2152	true	local=0.0146 contract=2.7229 jumps=1.2311 witness=0.0029 maxL=4374 MB=5260 rounds=33
+miter-eq-10000	MF	0.1262	0.7984	0.015	0.3012	search x2.6512	e2e(uncached) x2.0902	e2e(cached prep) x2.1637	true
+miter-bug-10000	MF	0.0847	0.3916	0.0133	0.3182	search x1.2306	e2e(uncached) x1.1443	e2e(cached prep) x1.1822	true
+miter-eq-10000	MMD	0.0337	0.4112	0.0189	0.2343	search x1.7553	e2e(uncached) x1.5507	e2e(cached prep) x1.6602	true
+miter-bug-10000	MMD	0.0324	0.3756	0.0128	0.2811	search x1.3363	e2e(uncached) x1.2503	e2e(cached prep) x1.3016	true
+miter-eq-30000	MF	0.3913	1.2741	0.0487	0.9822	search x1.2972	e2e(uncached) x1.171	e2e(cached prep) x1.2125	true
+miter-bug-30000	MF	0.3674	1.4992	0.0406	1.0004	search x1.4986	e2e(uncached) x1.3254	e2e(cached prep) x1.3647	true
+miter-eq-30000	MMD	0.1814	1.4476	0.0655	0.6919	search x2.0924	e2e(uncached) x1.7353	e2e(cached prep) x1.8654	true
+miter-bug-30000	MMD	0.1517	1.1525	0.0396	0.819	search x1.4071	e2e(uncached) x1.2909	e2e(cached prep) x1.3435	true
+miter-eq-100000	MF	1.8553	4.7402	0.2047	2.942	search x1.6112	e2e(uncached) x1.3186	e2e(cached prep) x1.3748	true
+miter-bug-100000	MF	1.5838	4.3446	0.183	3.2005	search x1.3575	e2e(uncached) x1.1935	e2e(cached prep) x1.2391	true
+miter-eq-100000	MMD	0.6198	4.4555	0.1449	2.253	search x1.9776	e2e(uncached) x1.6818	e2e(cached prep) x1.7667	true
+miter-bug-100000	MMD	0.7484	4.3031	0.137	2.6216	search x1.6414	e2e(uncached) x1.4404	e2e(cached prep) x1.499	true
+pk3-n20000	24 targets (11 sat)	cpu=7.7209	levelsync cached=0.6715 uncached=0.6506	batched one pass=0.1423	contract cached=1.9787 uncached=2.1034 wide=0	x(batched)=54.2677	x(best)=54.2677	true
+grid4x2000	24 targets (24 sat)	cpu=35.3528	levelsync cached=169.7594 uncached=169.7117	batched one pass=5.9662	contract cached=45.8656 uncached=45.7173 wide=1	x(batched)=5.9256	x(best)=5.9256	true
+DONE

@@ -1,0 +1,26 @@
+Model name:                              AMD EPYC 9655P 96-Core Processor
+pk4-n20000-K5	big	serial	1	0.1264	0.8244	true
+pk5-n20000-K6	big	serial	1	0.2195	5.9486	true
+pk6-n5000-K7	big	serial	1	0.0354	18.9081	true
+pk3-n5000-G30	big	serial	1	0.013	5.2767	true
+pk4-n1000-G40	big	serial	1	0.0028	20.7252	true
+pk4-n3000-G40	big	serial	1	0.0099	47.8979	true
+pk3-n3000-G30-Lawvere	big	serial	1	0.006	1.8313	Inf
+pk3-n3000-G30-Probability	big	serial	1	0.0062	4.6973	Inf
+grid4x100000-K3	deep	serial	1	0.6356	2.5541	true
+grid6x1000-K3	deep	serial	1	0.0055	0.1777	true
+grid5x1000-K4	deep	serial	1	0.004	0.4402	true
+grid6x4000-K3	deep	serial	1	0.023	0.7062	true
+miter-bug-10000	deep	serial	1	0.2061	0.2523	true
+miter-bug-30000	deep	serial	1	0.8422	0.8115	true
+miter-bug-100000	deep	serial	1	2.7962	2.5655	true
+miter-eq-30000	deep	serial	1	0.9123	0.8089	true
+pk3-n500-K4	small	serial	1	0.0009	0.0032	true
+grid4x200-K3	small	serial	1	0.0008	0.0052	true
+miter-bug-1000	small	serial	1	0.0172	0.0267	true
+many24-pk3-n20000	many	serial	1	0	4.9947	11
+┌ Warning: Assignment to `t` in soft scope is ambiguous because a global variable by the same name exists: `t` will be treated as a new local. Disambiguate by using `local t` to suppress this warning or `global t` to assign to the existing global variable.
+└ @ /blue/fairbanksj/itaykadosh/gpu/csets/CSets.jl-threads/threads/hpgcmp.jl:88
+┌ Warning: Assignment to `v` in soft scope is ambiguous because a global variable by the same name exists: `v` will be treated as a new local. Disambiguate by using `local v` to suppress this warning or `global v` to assign to the existing global variable.
+└ @ /blue/fairbanksj/itaykadosh/gpu/csets/CSets.jl-threads/threads/hpgcmp.jl:88
+DONE

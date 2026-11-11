@@ -322,7 +322,49 @@ HPG (RTX PRO 6000 vs one EPYC 9655P core), partial 3-tree n=20000, 24 random tar
 
 ### Random-mate rounds without a host sync per round
 
-The rounds now run in batches of 8, with one host check per batch, and no `findall`. On the laptop this fixed grid 5×2000 (0.36 s → 0.022 s, 8× over the CPU). The HPG `wide` and `e2e` reruns with this version did not finish: SSH to HPG failed again.
+The rounds now run in batches of 8, with one host check per batch, and no `findall`. On the laptop this fixed grid 5×2000 (0.36 s → 0.022 s, 8× over the CPU).
+
+### HPG v3 results (after the batched-round and type-stability fixes; job 48021453)
+
+RTX PRO 6000 vs one core of the GPU node's CPU, upstream CPU code (0d2c2a7). Raw: `gpu/results/hpg/v2_wide_48021453.tsv`, `v2_e2e_48021453.tsv`. Job 48020048 ran the same suites before the type-stability fix (`gpu/results/hpg/v3b/`); its contraction times are 5–10× slower and are superseded, except for `multi`.
+
+Contraction (search only, s):
+
+| workload | max L | CPU | GPU, mate | GPU, Wyllie | best speedup |
+|---|---:|---:|---:|---:|---:|
+| grid 4×100000 → K3 | 81 | 3.81 | 0.166 | 0.128 | **30×** (mate 23×) |
+| grid 5×2000 → K3 | 243 | 0.223 | 0.0107 | 0.0118 | **21×** |
+| grid 5×1000 → K4 | 1024 | 0.503 | 0.069 | 0.206 | 7.3× |
+| grid 6×4000 → K3 (2.7 GB) | 1458 | 0.782 | 0.151 | 0.532 | 5.2× |
+| grid 6×1000 → K3 | 1458 | 0.188 | 0.075 | 0.117 | 2.5× |
+| grid 7×1000 → K3 (5.3 GB) | 4374 | 0.793 | 0.573 | 1.36 | 1.4× |
+
+- Random mate is the right default: it wins everywhere except grid 4×100000, where Wyllie's fewer rounds (59 vs 140) win by 1.3×.
+- The batched rounds fixed grid 5×2000 on HPG too: 14× → 21×.
+- Above L ≈ 1000 the cubic composition dominates (`contract` is 90–97% of the GPU time); at L = 4374 the GPU barely wins.
+
+Miters, end to end (decomposition on the CPU + search), same ordering on both sides:
+
+| miter | MF: search | MF: end to end | MMD: search | MMD: end to end | MMD: end to end, prep cached |
+|---|---:|---:|---:|---:|---:|
+| eq 10k | 24× | 2.3× | 26× | 4.8× | 5.5× |
+| bug 10k | 19× | 3.9× | 19× | 6.1× | 7.5× |
+| eq 30k | 21× | 2.9× | 38× | 6.5× | 7.7× |
+| bug 30k | 23× | 3.8× | 27× | 6.1× | 7.3× |
+| eq 100k | 22× | 2.9× | 37× | 5.5× | 6.6× |
+| bug 100k | 24× | 3.1× | 26× | 5.4× | 6.5× |
+
+- Search is 19–38× now (was 11–27×). End to end with MMD is 4.8–6.5×, or 5.5–7.7× with the per-decomposition prep cached. With MF it is 2.3–3.9×: MF's ordering is the Amdahl term (0.3–1.9 s vs 0.03–0.68 s for MMD).
+- At 100k the GPU search is 0.13–0.22 s against 0.6–1.9 s of decomposition, so the decomposition is now 75–90% of the GPU end-to-end time.
+
+Many targets (job 48020048, before the type-stability fix; the contraction column there is the slow version):
+
+| X | targets | CPU | level-sync, one at a time | batched one pass | contraction, one at a time | best |
+|---|---|---:|---:|---:|---:|---:|
+| partial 3-tree n=20000 | 24 (11 sat) | 7.72 | 0.672 | **0.142** | 1.98 | **54×** |
+| grid 4×2000 | 24 (24 sat) | 35.4 | 170 | **5.97** | 45.9 (1 `:wide`) | 5.9× |
+
+grid 4×2000 is the bad case for the level-synchronous path: 8k levels, so one target at a time is 4.8× slower than the CPU, and only batching (24 targets per level) recovers 5.9×. Per target, `:auto` would pick the contraction here (height ≥ 256).
 
 ### HPG v2 results (before the batched-round and type-stability fixes)
 
@@ -360,7 +402,7 @@ Miters, end to end (decomposition + search), CPU vs GPU contraction with the sam
 - **Decomposition (HPG CPU):** MMD and AMD build the decomposition 2.5–4× faster than MF with the same bags. ND(METIS) gives the same width but is 2–5× slower than MF.
 - **Upstream CPU speed-ups:** the new upstream CPU search is 1.2–2.9× faster than d2927d3 on the laptop (miter 10k: 0.27 vs 0.78 s). That lowers the miter speedups proportionally; the large-target speedups barely change.
 
-Raw TSVs are on HPG under `/blue/fairbanksj/itaykadosh/gpu/csets/res/` (`v3a`, `v3b`); they were not copied here because SSH to HPG failed.
+Raw TSVs are copied to `gpu/results/hpg/` (`v2/`, `v3a/`, `v3b/`, plus the top-level `v2_*_480*.tsv`).
 
 ### Semiring values and weights in the level-synchronous search
 

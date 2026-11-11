@@ -1,0 +1,9 @@
+name
+NVIDIA RTX PRO 6000 Blackwell Server Edition
+pk3-n3000-G30-Lawvere	big	gpu	0	0.0045	0.3861	7456.37
+pk3-n3000-G30-Probability	big	gpu	0	0.0046	0.1528	0.0
+┌ Warning: Assignment to `t` in soft scope is ambiguous because a global variable by the same name exists: `t` will be treated as a new local. Disambiguate by using `local t` to suppress this warning or `global t` to assign to the existing global variable.
+└ @ /blue/fairbanksj/itaykadosh/gpu/csets/CSets.jl-threads/threads/hpgcmp.jl:90
+┌ Warning: Assignment to `v` in soft scope is ambiguous because a global variable by the same name exists: `v` will be treated as a new local. Disambiguate by using `local v` to suppress this warning or `global v` to assign to the existing global variable.
+└ @ /blue/fairbanksj/itaykadosh/gpu/csets/CSets.jl-threads/threads/hpgcmp.jl:90
+DONE
