@@ -440,7 +440,7 @@ HPG numbers for this version: see Round 4 below.
 
 ## Round 4: HPG on the level-search semiring version (Nov 10–11; jobs 50848717 RTX, 50848718 B200, 50755228 CPU)
 
-Code: `itay/gpu` at c753ee7 plus kernel stats only (3df63c6). Script `gpu/hpg_cmp.jl` (the `threads/hpgcmp.jl` workloads, same names and seeds, plus a size sweep); jobs `gpu/hpg_gpu3.sbatch` (one GPU per job), `gpu/hpg_cpu3.sbatch` (CPU baselines in their own jobs). All jobs source `env.sh` (`ulimit -c 0`). Raw: `gpu/results/hpg/v4/`. Correctness suites on the RTX PRO 6000 (job 50753980): test_rw 150/150, test_lsr 231/231, test 174/174, test_cgpu 310/310, test_many 434/434, test_semiring 120/120, test_contract 210/210.
+Code: `itay/gpu` at c753ee7 plus kernel stats only (3df63c6). Script `gpu/hpg_cmp.jl` (the `threads/hpgcmp.jl` workloads, same names and seeds, plus a size sweep); jobs `gpu/hpg_gpu3.sbatch` (one GPU per job), `gpu/hpg_cpu3.sbatch` (CPU baselines in their own jobs). All jobs source `env.sh` (`ulimit -c 0`). Raw: `gpu/results/hpg/v4/`. Correctness suites on the RTX PRO 6000 (job 50753980), rerun on 3df63c6 in job 50857116 with the same counts: test_rw 150/150, test_lsr 231/231, test 174/174, test_cgpu 310/310, test_many 434/434, test_semiring 120/120, test_contract 210/210.
 
 - serial = upstream CPU code, one EPYC 9655P core (new job 50755228).
 - best threads = min over 1–84 threads and the four itay/threads runs (`threads/results/cmp_threads_*.tsv`). The new 84-thread run of the sweep (job 50755229) is still pending, so sweep rows have serial only; their "best CPU" is an upper bound on the CPU time.
