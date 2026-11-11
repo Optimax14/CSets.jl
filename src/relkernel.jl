@@ -362,7 +362,7 @@ end
 # element k given the assigned set S (a bit mask), and the selectivity
 # of the other constraints. Reads only cx.typ, cx.vtx and cx.ccol.
 #
-function fan(cx, B::Bag{I}, k, S) where {I}
+function fan(cx, B::Bag{I}, k, S; pairs::Bool=true) where {I}
     sz(c) = Float64(cx.typ.xadj[c + 1] - cx.typ.xadj[c])
     inS(x) = (S >> (x - 1)) & 1 == 1
     n = sz(cx.vtx[k])
@@ -386,9 +386,14 @@ function fan(cx, B::Bag{I}, k, S) where {I}
     if !isempty(tz)
         sort!(tz; rev=true)
         if nimg == 0
-            if length(tz) >= 2
+            if length(tz) >= 2 && pairs
                 gen = max(n / (tz[1] * tz[2]), 1e-9)
                 rest = tz[3:end]
+            elseif length(tz) >= 2
+                # no pair index (contract!): scan the preimages of one
+                # assigned element and filter by the others
+                gen = n / tz[1]
+                rest = tz[2:end]
             else
                 gen = n / tz[1]
                 rest = Float64[]
@@ -425,10 +430,10 @@ end
 
 function plan(cx, B::Bag{I}) where {I}
     m = Int(B.m)
-    m == 0 && return I[], 0.0
+    m == 0 && return I[], 0.0, 1.0
     if m > 16
         order = greedyplan(cx, B)
-        return order, ordercost(cx, B, order)
+        return order, ordercost(cx, B, order)...
     end
     N = 1 << m
     cost = fill(Inf, N); card = zeros(N); prev = zeros(Int, N); last = zeros(Int, N)
@@ -452,22 +457,22 @@ function plan(cx, B::Bag{I}) where {I}
     while S != 0
         pushfirst!(order, last[S + 1]); S = prev[S + 1]
     end
-    return order, cost[N]
+    return order, cost[N], card[N]
 end
 
 #
 # The estimated cost (visited partial assignments) of assigning the bag
 # in the given order, under the model of plan.
 #
-function ordercost(cx, B::Bag{I}, order) where {I}
+function ordercost(cx, B::Bag{I}, order; pairs::Bool=true) where {I}
     cost = 0.0; card = 1.0; S = 0
     for k in order
-        gen, sel = fan(cx, B, k, S)
+        gen, sel = fan(cx, B, k, S; pairs)
         cost += card * max(gen, 1.0)
         card *= gen * sel
         S |= 1 << (k - 1)
     end
-    return cost
+    return cost, card
 end
 
 #
@@ -486,13 +491,23 @@ end
 # so a bag below tau there keeps the default without building a Bag.
 #
 const TAU = Ref(1e6)
-const RATIO = Ref(8.0)
+const RATIO = Ref(4.0)
+# decisions of prefer: [bags asked, bags sent to this kernel] (not thread-safe; for diagnostics)
+const DECISIONS = zeros(Int, 2)
+# the cost of emitting and aggregating one row, in visited assignments
+const AGG = Ref(4.0)
+# only bags with a target sort at least this large are considered (small,
+# dense targets such as K_q or G(40, 0.3) keep contract!, whose
+# separator-first order follows the children's key order)
+const MINSORT = Ref(2048)
 
 function prefer(C, typ, ccol, ::Type{T}; tau::Float64=TAU[], ratio::Float64=RATIO[]) where {T}
+    DECISIONS[1] += 1
     X = C.inst
     m = Int(X.dom.nu)
     (m == 0 || m > 62) && return false
     sz(k) = Float64(typ.xadj[X.vtx[k] + 1] - typ.xadj[X.vtx[k]])
+    maximum(sz, 1:m) < MINSORT[] && return false
     cost = 0.0; card = 1.0; S = 0
     for k in m:-1:1
         gen = sz(k)
@@ -516,10 +531,19 @@ function prefer(C, typ, ccol, ::Type{T}; tau::Float64=TAU[], ratio::Float64=RATI
     cost <= tau && return false
     B = Bag(C, T, ccol)
     cx = (; typ, vtx=X.vtx, ccol)
-    cdef = ordercost(cx, B, m:-1:1)
+    cdef, _ = ordercost(cx, B, m:-1:1; pairs=false)
     cdef <= tau && return false
-    order, crel = plan(cx, B)
-    return cdef > ratio * crel
+    order, crel, rows = plan(cx, B)
+    #
+    # with a separator, this kernel emits a row per complete assignment
+    # and aggregates them (a sort or a histogram): charge each row
+    #
+    if m > Int(C.nr)
+        crel += AGG[] * rows
+    end
+    r = cdef > ratio * crel
+    DECISIONS[2] += r
+    return r
 end
 
 function greedyplan(cx, B::Bag{I}) where {I}

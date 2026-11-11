@@ -70,7 +70,7 @@ end
 # the :auto path with thresholds that select relk at every bag, and never
 RK = CSets.RelKernel
 for (tau, ratio) in ((0.0, 0.0), (Inf, Inf))
-    RK.TAU[] = tau; RK.RATIO[] = ratio
+    RK.TAU[] = tau; RK.RATIO[] = ratio; RK.MINSORT[] = tau == 0 ? 0 : 2048
     local rng = MersenneTwister(3); local n0 = nok
     for trial in 1:150
         nY = rand(rng, 1:12); mY = rand(rng, 0:30)
@@ -84,5 +84,5 @@ for (tau, ratio) in ((0.0, 0.0), (Inf, Inf))
     end
     println("auto tau=$tau ratio=$ratio: ok $(nok - n0) bad $nbad")
 end
-RK.TAU[] = 1e6; RK.RATIO[] = 8.0
+RK.TAU[] = 1e6; RK.RATIO[] = 4.0; RK.MINSORT[] = 2048
 println(nbad == 0 ? "ALL OK $nok" : "FAILED $nbad")
