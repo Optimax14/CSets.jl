@@ -71,14 +71,14 @@ end
 RK = CSets.RelKernel
 for (tau, ratio) in ((0.0, 0.0), (Inf, Inf))
     RK.TAU[] = tau; RK.RATIO[] = ratio
-    rng = MersenneTwister(3); n0 = nok
+    local rng = MersenneTwister(3); local n0 = nok
     for trial in 1:150
         nY = rand(rng, 1:12); mY = rand(rng, 0:30)
-        Y = graph_instance(nY, rgraph(rng, nY, mY))
+        local Y = graph_instance(nY, rgraph(rng, nY, mY))
         k = rand(rng, 1:6); mX = rand(rng, 0:9)
-        X = graph_instance(k, rgraph(rng, k, mX))
+        local X = graph_instance(k, rgraph(rng, k, mX))
         float(mY + 1)^mX * float(nY)^k > 1e8 && continue
-        D = CSets.decomposition(X, graph_support(X); alg=MF())
+        local D = CSets.decomposition(X, graph_support(X); alg=MF())
         check(Probability(), nothing, D, Y, "auto tau=$tau $trial", true)
         check(Lawvere(), [ifelse.(rand(rng, nY, k) .< 0.2, Inf, rand(rng, 0:5, nY, k) .* 1.0), nothing], D, Y, "auto tau=$tau $trial", true)
     end
