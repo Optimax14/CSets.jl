@@ -354,7 +354,7 @@ Miters, end to end (decomposition on the CPU + search), same ordering on both si
 | eq 100k | 22× | 2.9× | 37× | 5.5× | 6.6× |
 | bug 100k | 24× | 3.1× | 26× | 5.4× | 6.5× |
 
-- Search is 19–38× now (was 11–27×). End to end with MMD is 4.8–6.5×, or 5.5–7.7× with the per-decomposition prep cached. With MF it is 2.3–3.9×: MF's ordering is the Amdahl term (0.3–1.9 s vs 0.03–0.68 s for MMD).
+- Search is 19–38× now (was 11–27×). Caveat (Round 4): the CPU search times in this job were 1.7–1.9× slower than in later runs and in the separate CPU job, so these miter speedups are overstated by about that factor. End to end with MMD is 4.8–6.5×, or 5.5–7.7× with the per-decomposition prep cached. With MF it is 2.3–3.9×: MF's ordering is the Amdahl term (0.3–1.9 s vs 0.03–0.68 s for MMD).
 - At 100k the GPU search is 0.13–0.22 s against 0.6–1.9 s of decomposition, so the decomposition is now 75–90% of the GPU end-to-end time.
 
 Many targets (job 48020048, before the type-stability fix; the contraction column there is the slow version):
@@ -436,6 +436,99 @@ Laptop RTX 5060 vs the new upstream CPU (which is up to 3× faster than d2927d3)
 
 On the small instances the GPU loses: the GPU time is all kernel time, spent in one thread's search of a large leaf bag.
 
-HPG numbers for this version are still to do: SSH to HPG failed again.
+HPG numbers for this version: see Round 4 below.
+
+## Round 4: HPG on the level-search semiring version (Nov 10–11; jobs 50848717 RTX, 50848718 B200, 50755228 CPU)
+
+Code: `itay/gpu` at c753ee7 plus kernel stats only (3df63c6). Script `gpu/hpg_cmp.jl` (the `threads/hpgcmp.jl` workloads, same names and seeds, plus a size sweep); jobs `gpu/hpg_gpu3.sbatch` (one GPU per job), `gpu/hpg_cpu3.sbatch` (CPU baselines in their own jobs). All jobs source `env.sh` (`ulimit -c 0`). Raw: `gpu/results/hpg/v4/`. Correctness suites on the RTX PRO 6000 (job 50753980): test_rw 150/150, test_lsr 231/231, test 174/174, test_cgpu 310/310, test_many 434/434, test_semiring 120/120, test_contract 210/210.
+
+- serial = upstream CPU code, one EPYC 9655P core (new job 50755228).
+- best threads = min over 1–84 threads and the four itay/threads runs (`threads/results/cmp_threads_*.tsv`). The new 84-thread run of the sweep (job 50755229) is still pending, so sweep rows have serial only; their "best CPU" is an upper bound on the CPU time.
+- GPU auto = `CSetsGPU.score(R, W, D, Y)` with the default `method=:auto` (levels below 256 levels, else contraction); best = min over `:auto`, `:levels`, `:contract`. Search only, decomposition excluded; min of 2–3 warm runs.
+
+| workload | serial | best threads (n) | best CPU | RTX auto | RTX best (method) | B200 auto | B200 best | best CPU / RTX auto | best CPU / B200 auto |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| pk4-n20000-K5 | 0.8165 | 0.1468 (32) | 0.1468 | 0.0763 | 0.0758 (levels) | 0.1003 | 0.1003 (auto) | 1.9× | 1.5× |
+| pk5-n20000-K6 | 5.776 | 0.4986 (84) | 0.4986 | 0.2026 | 0.2026 (auto) | 0.239 | 0.2308 (levels) | 2.5× | 2.1× |
+| pk6-n5000-K7 | 17.12 | 1.171 (84) | 1.171 | 0.8084 | 0.8084 (auto) | 0.8984 | 0.8984 (auto) | 1.4× | 1.3× |
+| pk3-n5000-G30 | 5.183 | 0.1874 (64) | 0.1874 | 0.1428 | 0.1422 (levels) | 0.1523 | 0.1523 (auto) | 1.3× | 1.2× |
+| pk4-n1000-G40 | 20.32 | 1.062 (84) | 1.062 | 0.575 | 0.575 (auto) | 0.5766 | 0.5766 (auto) | 1.8× | 1.8× |
+| pk4-n3000-G40 | 46.13 | 3.258 (32) | 3.258 | 1.328 | 1.328 (auto) | 1.231 | 1.231 (auto) | 2.5× | 2.6× |
+| pk3-n3000-G30-Lawvere | 4.604 | 0.2187 (84) | 0.2187 | 0.3459 | 0.3454 (levels) | 0.3707 | 0.3707 (auto) | 0.63× | 0.59× |
+| pk3-n3000-G30-Probability | 2.794 | 0.2204 (84) | 0.2204 | 0.1421 | 0.1421 (auto) | 0.1581 | 0.1581 (auto) | 1.6× | 1.4× |
+| grid4x100000-K3 | 2.508 | 0.8802 (32) | 0.8802 | 0.4243 | 0.1972 (contract) | 0.5506 | 0.262 (contract) | 2.1× | 1.6× |
+| grid6x1000-K3 | 0.1766 | 0.137 (32) | 0.137 | 0.0739 | 0.0739 (auto) | 0.0739 | 0.0735 (contract) | 1.9× | 1.9× |
+| grid5x1000-K4 | 0.4373 | 0.2847 (32) | 0.2847 | 0.0678 | 0.0678 (auto) | 0.0656 | 0.0656 (auto) | 4.2× | 4.3× |
+| grid6x4000-K3 | 0.7072 | 0.5434 (1) | 0.5434 | 0.1494 | 0.1494 (auto) | 0.1445 | 0.1445 (auto) | 3.6× | 3.8× |
+| miter-bug-10000 | 0.2478 | 0.1776 (32) | 0.1776 | 0.0301 | 0.0296 (contract) | 0.0438 | 0.0438 (auto) | 5.9× | 4.1× |
+| miter-bug-30000 | 0.7808 | 0.51 (32) | 0.51 | 0.0937 | 0.0937 (auto) | 0.1324 | 0.1324 (auto) | 5.4× | 3.9× |
+| miter-bug-100000 | 2.494 | 1.641 (32) | 1.641 | 0.343 | 0.343 (auto) | 0.5256 | 0.5256 (auto) | 4.8× | 3.1× |
+| miter-eq-30000 | 0.7887 | 0.5403 (32) | 0.5403 | 0.0975 | 0.0975 (auto) | 0.1368 | 0.1347 (contract) | 5.5× | 3.9× |
+| pk3-n500-K4 | 0.0031 | 0.002 (8) | 0.002 | 0.013 | 0.0129 (levels) | 0.0163 | 0.0163 (auto) | 0.15× | 0.12× |
+| grid4x200-K3 | 0.0049 | 0.0042 (64) | 0.0042 | 0.0031 | 0.0031 (auto) | 0.0043 | 0.0042 (contract) | 1.4× | 0.98× |
+| miter-bug-1000 | 0.0262 | 0.0202 (32) | 0.0202 | 0.0073 | 0.0072 (contract) | 0.0099 | 0.0099 (auto) | 2.8× | 2× |
+| pk3-n200-K4 | 0.0012 | – (pending) | 0.0012 | 0.0068 | 0.0031 (contract) | 0.0089 | 0.0042 (contract) | 0.18× | 0.13× |
+| pk3-n2000-K4 | 0.0125 | – (pending) | 0.0125 | 0.0169 | 0.0169 (auto) | 0.0222 | 0.0222 (auto) | 0.74× | 0.56× |
+| pk3-n5000-K4 | 0.0318 | – (pending) | 0.0318 | 0.0217 | 0.0217 (auto) | 0.0313 | 0.0297 (levels) | 1.5× | 1× |
+| pk3-n300-G30-Boolean | 0.258 | – (pending) | 0.258 | 0.0235 | 0.0235 (auto) | 0.0312 | 0.0312 (auto) | 11× | 8.3× |
+| pk3-n300-G30-Lawvere | 0.4361 | – (pending) | 0.4361 | 0.1083 | 0.1082 (levels) | 0.12 | 0.12 (auto) | 4× | 3.6× |
+| pk3-n300-G30-Probability | 0.4302 | – (pending) | 0.4302 | 0.1086 | 0.1083 (levels) | 0.1222 | 0.1216 (levels) | 4× | 3.5× |
+| pk3-n1000-G30-Boolean | 1.121 | – (pending) | 1.121 | 0.0599 | 0.0597 (levels) | 0.0758 | 0.069 (levels) | 19× | 15× |
+| pk3-n1000-G30-Lawvere | 2.367 | – (pending) | 2.367 | 0.7186 | 0.7177 (levels) | 0.7359 | 0.7357 (levels) | 3.3× | 3.2× |
+| pk3-n1000-G30-Probability | 2.302 | – (pending) | 2.302 | 0.1863 | 0.1863 (auto) | 0.2055 | 0.2055 (auto) | 12× | 11× |
+| pk3-n3000-G30-Boolean | 2.807 | – (pending) | 2.807 | 0.0986 | 0.0986 (auto) | 0.1165 | 0.1165 (auto) | 28× | 24× |
+| pk3-n10000-G30-Boolean | 9.14 | – (pending) | 9.14 | 0.2301 | 0.2301 (auto) | 0.2428 | 0.2423 (levels) | 40× | 38× |
+| pk3-n10000-G30-Lawvere | 16.53 | – (pending) | 16.53 | 1.091 | 1.085 (levels) | 1.097 | 1.097 (auto) | 15× | 15× |
+| pk3-n10000-G30-Probability | 1.328 | – (pending) | 1.328 | 0.4396 | 0.4373 (levels) | 0.4408 | 0.439 (levels) | 3× | 3× |
+| pk4-n1000-G40-Lawvere | 34.68 | – (pending) | 34.68 | 0.9597 | 0.9597 (auto) | 0.9914 | 0.9909 (levels) | 36× | 35× |
+| pk4-n1000-G40-Probability | 31.84 | – (pending) | 31.84 | 0.7804 | 0.7804 (auto) | 0.8521 | 0.8521 (auto) | 41× | 37× |
+| grid4x50-K3 | 0.0013 | – (pending) | 0.0013 | 0.0949 | 0.003 (contract) | 0.1215 | 0.0045 (contract) | 0.014× | 0.011× |
+| grid4x1000-K3 | 0.0256 | – (pending) | 0.0256 | 0.0043 | 0.0043 (auto) | 0.0066 | 0.0061 (contract) | 6× | 3.9× |
+| grid4x5000-K3 | 0.1235 | – (pending) | 0.1235 | 0.0094 | 0.0094 (auto) | 0.013 | 0.013 (auto) | 13× | 9.5× |
+| grid4x20000-K3 | 0.4864 | – (pending) | 0.4864 | 0.0282 | 0.0282 (auto) | 0.041 | 0.0392 (contract) | 17× | 12× |
+| grid4x20000-K3-Lawvere | 0.7592 | – (pending) | 0.7592 | 0.1445 | 0.1444 (contract) | 0.1448 | 0.1194 (contract) | 5.3× | 5.2× |
+| grid4x20000-K3-Probability | 0.0182 | – (pending) | 0.0182 | 0.1166 | 0.1108 (contract) | 0.1692 | 0.1189 (contract) | 0.16× | 0.11× |
+| grid6x1000-K3-Lawvere | 0.3406 | – (pending) | 0.3406 | 1.129 | 1.115 (levels) | 15.28 | 1.524 (levels) | 0.3× | 0.022× |
+| grid6x1000-K3-Probability | 0.1174 | – (pending) | 0.1174 | 0.2605 | 0.2358 (levels) | 15.62 | 0.2992 (levels) | 0.45× | 0.0075× |
+| miter-bug-100 | 0.0026 | – (pending) | 0.0026 | 0.0562 | 0.0038 (contract) | 0.0724 | 0.0058 (contract) | 0.046× | 0.036× |
+| miter-bug-300 | 0.0077 | – (pending) | 0.0077 | 0.0045 | 0.0045 (auto) | 0.0062 | 0.0061 (contract) | 1.7× | 1.2× |
+| miter-bug-3000 | 0.0752 | – (pending) | 0.0752 | 0.0128 | 0.0127 (contract) | 0.017 | 0.017 (auto) | 5.9× | 4.4× |
+| many24-pk3-n20000 | 4.766 | 0.405 (84) | 0.405 | 0.1269 | 0.1269 (batched) | 0.1354 | 0.1354 (batched) | 3.2× | 3× |
+| many24-grid4x2000 | 28.37 | – (pending) | 28.37 | 6.206 | 6.206 (batched) | 7.764 | 7.764 (batched) | 4.6× | 3.7× |
+
+**Where the GPU wins (vs the full CPU node):** big shallow searches 1.2–2.6×; deep trees 1.9–5.9× on the RTX, 1.6–4.3× on the B200; 24 targets in one batched pass 3.0–3.2× vs 84 threads (pk3-n20000), 4.6× vs serial on grid4x2000. Against one core the semiring sweep is 3–41× (pk4-n1000-G40 Lawvere 36×, Probability 41×).
+
+**Where it still loses:**
+
+| case | best CPU | GPU (RTX auto) | why |
+|---|---:|---:|---|
+| pk3-n3000 → G30, Lawvere | 0.219 (84 thr) | 0.346 (0.63×; B200 0.59×) | semiring search enumerates every residual extension (no early exit as in Boolean); Lawvere is 2.4× slower than Probability on the same instance, because Probability underflows to 0 and zero values prune |
+| pk3-n200/500/2000 → K4 | 1.2 / 2.0 / 12.5 ms | 6.8 / 13 / 17 ms | ~20 levels × 5–7 rounds of ~0.1 ms launches + host syncs; the GPU floor is ~3 ms (contraction) / ~7 ms (levels) |
+| grid4x50 → K3, miter-bug-100 | 1.3 / 2.6 ms | 95 / 56 ms (contract: 3.0 / 3.8 ms) | `:auto` picks levels (height 179 / 143 < 256) at ~0.4–0.5 ms per level |
+| grid4x20000 → K3, Probability | 18 ms | 117 ms | CPU result underflows to 0 early and prunes; the GPU dense contraction does the full L×L×L work |
+| grid6x1000 → K3, Lawvere / Probability (L = 1458) | 0.34 / 0.12 s | 1.1 / 0.26 s; **B200 auto 15.3 / 15.6 s** | dense (non-bit-packed) composition at L = 1458 is 64× the Boolean work; on the B200 the dense contraction is 13× slower than on the RTX (to investigate: likely the CAS-based float atomics or FP64 path) |
+
+Other findings:
+- **`:auto` misses the better method** on small trees: levels vs contraction at height 9–180 (pk3-n200-K4 levels 6.8 ms vs contract 3.1 ms; grid4x50 95 vs 3.0 ms). grid4x100000 picks contraction with mate (0.42 s) while Wyllie/`:contract` best was 0.20 s.
+- **Level-synchronous per-level cost** (deep trees, RTX): 0.25–0.55 ms per level (grid4x1000: 2.01 s / 3978 levels; miter-bug-3000: 1.88 s / 6010). Contraction on the same trees: 4–13 ms.
+- **Giant bags (shallow big-Y):** the slowest single kernel is at the leaf level with 1.6–4.6M items: pk4-n3000-G40 kmax 0.355 s of 1.47 s kernel time (24%); pk3-n10000-G30 Probability 0.131 of 0.454 s (29%). Raising items further does not help: these kernels are tail-bound on a few items with fully fixed separators whose residual search is long. (Lawvere rows did not record stats: that path returns before the stats block; to fix.)
+- **B200 vs RTX:** on shallow searches the B200 is within 0.8–1.1× of the RTX; deep-tree contraction is 1.3–1.5× slower on the B200, and the dense contraction above is 13× slower (lower clocks, launch-bound rounds).
+- **Rerun of the old suites (`v4_*`):** contraction (wide) is unchanged (grid4x100000 23×, grid5x2000 14×, grid5x1000-K4 6.9×, grid7x1000 1.03×). Miter `e2e`: the GPU times are unchanged, but the CPU search measured in this job is 1.7–1.9× faster than in 48021453 (miter 10k: 0.22–0.24 s vs 0.37–0.40 s; it matches the separate CPU job 50755228), so the honest numbers are search 9–20×, end to end with MMD 2.7–4.1× (3.7–5.2× with prep cached) on the RTX. The 48021453 speedups above overstate by that factor. multi: pk3-n20000 24 targets batched 50× (RTX) / 39× (B200) vs one core; grid4x2000 4.5×.
+
+### Proposed fix (not implemented): CPU fallback and method choice in `:auto`
+
+All thresholds are cost-model terms whose constants come from a per-device measurement at first use (launch + sync latency, dense/packed product throughput), per the generic-GPU rule; the numbers below are the RTX / B200 calibration from this run.
+
+1. **Method choice (levels vs contraction), replace `height < 256`:**
+   - t_levels ≈ height × c_lev + kernel work, with c_lev = measured cost of one level (0.25–0.55 ms here; measure as ~5 launches + 1 sync).
+   - t_contract ≈ c_c + Σ_t work(L_t), c_c ≈ 3–5 ms here, work = L_t² per bag for the local tables plus L³ per absorbed chain bag, /64 for bit-packed Boolean. L_t comes from the local-table count, which `prepare_contract` + the local pass already compute (cheap: 1–40 ms here).
+   - Concretely: prefer contraction whenever it fits and maxL ≤ 4096 (Boolean, bit-packed) or maxL ≤ 256 (dense semiring); this flips grid4x50 (95 → 3 ms), miter-bug-100 (56 → 3.8 ms), pk3-n200-K4 (6.8 → 3.1 ms) and keeps every current win. Dense semiring with maxL > 256 goes to levels (grid6x1000 Lawvere: 15.3 → 1.5 s on the B200), and to the CPU when height × c_lev is also large (point 2).
+   - Wyllie instead of mate when the tree is a few long chains with small L (grid4x100000: 0.42 → 0.20 s); pick by the number of mate rounds, which is known after the first batch.
+2. **CPU fallback:**
+   - **Tiny instances:** run the CPU serial search with a deadline equal to the device floor t_floor (≈ 2× min(c_c, c_lev × height); 6–10 ms here); if it finishes, return its answer, else start the GPU. Losses on the GPU side (pk3-n200/500/2000-K4, grid4x50, miter-bug-100: CPU 1.2–12.5 ms) would then run on the CPU, and a case where the GPU wins pays at most t_floor (pk3-n5000-K4: 22 ms → ≤ 32 ms, still ≈ CPU). A static pre-filter that skips the GPU when nt × |Y| < ~2·10⁵ element pairs covers the same rows without spending CPU time (pk3-n2000-K4: 1831 × 16 = 2.9·10⁴, loses; pk3-n300-G30: 276 × 274 = 7.6·10⁴ but wins 11×), so the deadline race is the safer rule.
+   - **Deep tree + dense semiring with large L:** when maxL > 256 (dense) and height × c_lev > the serial estimate, use the CPU (grid6x1000 Lawvere/Probability: CPU 0.34 / 0.12 s vs best GPU 1.1 / 0.24 s).
+   - **Lawvere on big shallow trees vs a threaded CPU:** the GPU still beats one core 3.3–36× on Lawvere, so the fallback should only trigger when `Threaded` CPU is available and the instance is mid-size (estimated serial time < ~5 s); the real fix is point 3.
+3. **Residual-search split for giant bags** (the Lawvere and kmax losses): when an item's separator is fully fixed and its step budget runs out, split it on the first residual position into one sub-item per candidate, each accumulating a partial ⊕ into the parent's column slot with the semiring's atomic (Boolean: first-to-succeed flag; Lawvere: `atomicmin!`; Probability: `atomic_add!`). Trigger: kmax / kernel time > 20% at a level and that level has < 4 × (SMs × 8 × 128) items, i.e. the last kernels of pk4-n3000-G40 (24%) and pk3-n10000-G30 (29%). Expected: removes most of the 0.1–0.35 s tails, enough to move Lawvere pk3-n3000-G30 from 0.35 s to ≈ 0.2 s (parity with 84 threads); needs Lawvere stats first to confirm the share.
+
 
 The branch is pushed to https://github.com/Optimax14/CSets.jl/tree/itay/gpu (rebased on origin/main 0d2c2a7; no PR).

@@ -1,0 +1,14 @@
+pk4-n20000-K5	budget=0	1.2135	0.0802	15.1231	true	sat=true rounds=184 kern=0.0567
+pk4-n20000-K5	budget=16384	1.2135	0.0819	14.8152	true	sat=true rounds=184 kern=0.0565
+pk6-n5000-K7	budget=0	22.1178	0.8385	26.3767	true	sat=true rounds=176 kern=0.784
+pk6-n5000-K7	budget=16384	22.1178	0.9215	24.0009	true	sat=true rounds=178 kern=0.8649
+pk5-n20000-K6	budget=0	7.7721	0.2023	38.4099	true	sat=true rounds=191 kern=0.1719
+pk5-n20000-K6	budget=16384	7.7721	0.2209	35.1794	true	sat=true rounds=191 kern=0.173
+pk3-n5000-G30	budget=0	13.1786	0.1409	93.5473	true	sat=true rounds=118 kern=0.1173
+pk3-n5000-G30	budget=16384	13.1786	0.145	90.8887	true	sat=true rounds=118 kern=0.1161
+pk4-n1000-G40	budget=0	47.1682	0.8109	58.1674	true	sat=true rounds=120 kern=0.7777
+pk4-n1000-G40	budget=16384	47.1682	0.5764	81.8327	true	sat=true rounds=124 kern=0.5471
+pk4-n3000-G40	budget=0	120.5021	0.9174	131.348	true	sat=true rounds=119 kern=0.8827
+pk4-n3000-G40	budget=16384	120.5021	1.2358	97.5097	true	sat=true rounds=125 kern=1.1918
+pk5-n1000-G60	budget=0	11.6724	3.9623	2.9459	true	sat=false rounds=3 kern=3.9562
+pk5-n1000-G60	budget=16384	11.6724	4.2252	2.7625	true	sat=false rounds=5 kern=4.2144

@@ -1,0 +1,2 @@
+pk3-n20000	24 targets (11 sat)	cpu=4.9598	levelsync cached=0.6661 uncached=0.919	batched one pass=0.1274	contract cached=0.6624 uncached=0.7821 wide=0	x(batched)=38.9244	x(best)=38.9244	true
+grid4x2000	24 targets (24 sat)	cpu=27.1695	levelsync cached=175.434 uncached=175.5674	batched one pass=6.0606	contract cached=10.1193 uncached=9.2757 wide=1	x(batched)=4.483	x(best)=4.483	true

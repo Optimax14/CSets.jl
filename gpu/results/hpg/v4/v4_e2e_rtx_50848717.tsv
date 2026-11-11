@@ -1,0 +1,12 @@
+miter-eq-10000	MF	0.2869	0.2349	0.0149	0.0257	search x9.1543	e2e(uncached) x1.5936	e2e(cached prep) x1.6695	true
+miter-bug-10000	MF	0.0881	0.2236	0.0142	0.0231	search x9.6715	e2e(uncached) x2.4862	e2e(cached prep) x2.8033	true
+miter-eq-10000	MMD	0.0397	0.2406	0.0134	0.0146	search x16.4725	e2e(uncached) x4.1394	e2e(cached prep) x5.1646	true
+miter-bug-10000	MMD	0.0402	0.2208	0.0132	0.0188	search x11.7579	e2e(uncached) x3.6168	e2e(cached prep) x4.4274	true
+miter-eq-30000	MF	0.6283	0.771	0.0709	0.062	search x12.4305	e2e(uncached) x1.8383	e2e(cached prep) x2.0271	true
+miter-bug-30000	MF	0.3696	0.7429	0.0405	0.0556	search x13.3738	e2e(uncached) x2.3891	e2e(cached prep) x2.6169	true
+miter-eq-30000	MMD	0.18	0.7404	0.041	0.0378	search x19.5804	e2e(uncached) x3.5567	e2e(cached prep) x4.2254	true
+miter-bug-30000	MMD	0.1278	0.6888	0.0409	0.0503	search x13.7019	e2e(uncached) x3.7293	e2e(cached prep) x4.5858	true
+miter-eq-100000	MF	1.9001	2.5392	0.3651	0.2208	search x11.4991	e2e(uncached) x1.7857	e2e(cached prep) x2.0931	true
+miter-bug-100000	MF	1.5873	2.5628	0.151	0.1931	search x13.2743	e2e(uncached) x2.1488	e2e(cached prep) x2.331	true
+miter-eq-100000	MMD	0.8285	2.776	0.3696	0.1491	search x18.6201	e2e(uncached) x2.6756	e2e(cached prep) x3.6872	true
+miter-bug-100000	MMD	0.6363	2.4661	0.1396	0.1661	search x14.8449	e2e(uncached) x3.2935	e2e(cached prep) x3.8664	true

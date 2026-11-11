@@ -1,0 +1,139 @@
+pk4-n20000-K5	big	gpu	auto	0.0814	0.0763	true	height=23 nt=18532 nx=76074 ny=25 maxbag=20 maxsep=14 lsep=50.5 lbag=76.4	
+pk4-n20000-K5	big	gpu	levels	0.0814	0.0758	true	height=23 nt=18532 nx=76074 ny=25 maxbag=20 maxsep=14 lsep=50.5 lbag=76.4	kernel=0.0518 kmax=0.0047 kmaxlev=21/24 kmaxitems=1 rounds=184 nkern=208
+pk4-n20000-K5	big	gpu	contract	0.0814	skip		height=23 nt=18532 nx=76074 ny=25 maxbag=20 maxsep=14 lsep=50.5 lbag=76.4
+pk5-n20000-K6	big	gpu	auto	0.1492	0.2026	true	height=24 nt=18771 nx=80263 ny=36 maxbag=24 maxsep=17 lsep=67.2 lbag=103.8	
+pk5-n20000-K6	big	gpu	levels	0.1492	0.2063	true	height=24 nt=18771 nx=80263 ny=36 maxbag=24 maxsep=17 lsep=67.2 lbag=103.8	kernel=0.1707 kmax=0.0194 kmaxlev=1/25 kmaxitems=1650530 rounds=192 nkern=217
+pk5-n20000-K6	big	gpu	contract	0.1492	skip		height=24 nt=18771 nx=80263 ny=36 maxbag=24 maxsep=17 lsep=67.2 lbag=103.8
+pk6-n5000-K7	big	gpu	auto	0.0275	0.8084	true	height=21 nt=4720 nx=22885 ny=49 maxbag=32 maxsep=23 lsep=103.3 lbag=149.3	
+pk6-n5000-K7	big	gpu	levels	0.0275	0.8188	true	height=21 nt=4720 nx=22885 ny=49 maxbag=32 maxsep=23 lsep=103.3 lbag=149.3	kernel=0.7691 kmax=0.152 kmaxlev=8/22 kmaxitems=159348 rounds=180 nkern=202
+pk6-n5000-K7	big	gpu	contract	0.0275	skip		height=21 nt=4720 nx=22885 ny=49 maxbag=32 maxsep=23 lsep=103.3 lbag=149.3
+pk3-n5000-G30	big	gpu	auto	0.0085	0.1428	true	height=20 nt=4633 nx=17004 ny=298 maxbag=14 maxsep=9 lsep=60.0 lbag=103.4	
+pk3-n5000-G30	big	gpu	levels	0.0085	0.1422	true	height=20 nt=4633 nx=17004 ny=298 maxbag=14 maxsep=9 lsep=60.0 lbag=103.4	kernel=0.1337 kmax=0.0543 kmaxlev=1/21 kmaxitems=1641455 rounds=118 nkern=139
+pk3-n5000-G30	big	gpu	contract	0.0085	skip		height=20 nt=4633 nx=17004 ny=298 maxbag=14 maxsep=9 lsep=60.0 lbag=103.4
+pk4-n1000-G40	big	gpu	auto	0.0019	0.575	true	height=19 nt=922 nx=3803 ny=538 maxbag=18 maxsep=13 lsep=98.3 lbag=139.5	
+pk4-n1000-G40	big	gpu	levels	0.0019	0.5766	true	height=19 nt=922 nx=3803 ny=538 maxbag=18 maxsep=13 lsep=98.3 lbag=139.5	kernel=0.5955 kmax=0.1197 kmaxlev=1/20 kmaxitems=4622798 rounds=124 nkern=144
+pk4-n1000-G40	big	gpu	contract	0.0019	skip		height=19 nt=922 nx=3803 ny=538 maxbag=18 maxsep=13 lsep=98.3 lbag=139.5
+pk4-n3000-G40	big	gpu	auto	0.0076	1.3282	true	height=18 nt=2765 nx=11362 ny=490 maxbag=19 maxsep=13 lsep=97.1 lbag=150.0	
+pk4-n3000-G40	big	gpu	levels	0.0076	1.4354	true	height=18 nt=2765 nx=11362 ny=490 maxbag=19 maxsep=13 lsep=97.1 lbag=150.0	kernel=1.467 kmax=0.3552 kmaxlev=1/19 kmaxitems=3153200 rounds=127 nkern=146
+pk4-n3000-G40	big	gpu	contract	0.0076	skip		height=18 nt=2765 nx=11362 ny=490 maxbag=19 maxsep=13 lsep=97.1 lbag=150.0
+pk3-n3000-G30-Lawvere	big	gpu	auto	0.0048	0.3459	7456.37	height=17 nt=2770 nx=10193 ny=284 maxbag=14 maxsep=8 lsep=51.6 lbag=99.5	
+pk3-n3000-G30-Lawvere	big	gpu	levels	0.0048	0.3454	7456.37	height=17 nt=2770 nx=10193 ny=284 maxbag=14 maxsep=8 lsep=51.6 lbag=99.5	kernel=-1.0 kmax=-1.0 kmaxlev=-1/-1 kmaxitems=-1 rounds=-1 nkern=-1
+pk3-n3000-G30-Lawvere	big	gpu	contract	0.0048	skip		height=17 nt=2770 nx=10193 ny=284 maxbag=14 maxsep=8 lsep=51.6 lbag=99.5
+pk3-n3000-G30-Probability	big	gpu	auto	0.0046	0.1421	0.0	height=17 nt=2770 nx=10193 ny=284 maxbag=14 maxsep=8 lsep=51.6 lbag=99.5	
+pk3-n3000-G30-Probability	big	gpu	levels	0.0046	0.144	0.0	height=17 nt=2770 nx=10193 ny=284 maxbag=14 maxsep=8 lsep=51.6 lbag=99.5	kernel=0.1321 kmax=0.0344 kmaxlev=1/18 kmaxitems=2258369 rounds=66 nkern=66
+pk3-n3000-G30-Probability	big	gpu	contract	0.0046	skip		height=17 nt=2770 nx=10193 ny=284 maxbag=14 maxsep=8 lsep=51.6 lbag=99.5
+grid4x100000-K3	deep	gpu	auto	0.4788	0.4243	true	height=399960 nt=399996 nx=1099996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	
+grid4x100000-K3	deep	gpu	levels	0.4788	skip		height=399960 nt=399996 nx=1099996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3
+grid4x100000-K3	deep	gpu	contract	0.4788	0.1972	true	height=399960 nt=399996 nx=1099996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	
+grid6x1000-K3	deep	gpu	auto	0.0042	0.0739	true	height=2002 nt=5518 nx=16994 ny=9 maxbag=12 maxsep=9 lsep=16.3 lbag=24.0	
+grid6x1000-K3	deep	gpu	levels	0.0042	1.0951	true	height=2002 nt=5518 nx=16994 ny=9 maxbag=12 maxsep=9 lsep=16.3 lbag=24.0	kernel=0.5593 kmax=0.0036 kmaxlev=7/2003 kmaxitems=2 rounds=14117 nkern=16120
+grid6x1000-K3	deep	gpu	contract	0.0042	0.0739	true	height=2002 nt=5518 nx=16994 ny=9 maxbag=12 maxsep=9 lsep=16.3 lbag=24.0	
+grid5x1000-K4	deep	gpu	auto	0.0031	0.0678	true	height=3980 nt=4994 nx=13995 ny=16 maxbag=11 maxsep=9 lsep=24.3 lbag=31.5	
+grid5x1000-K4	deep	gpu	levels	0.0031	2.3244	true	height=3980 nt=4994 nx=13995 ny=16 maxbag=11 maxsep=9 lsep=24.3 lbag=31.5	kernel=1.1692 kmax=0.0134 kmaxlev=2268/3981 kmaxitems=4 rounds=31210 nkern=35191
+grid5x1000-K4	deep	gpu	contract	0.0031	skip		height=3980 nt=4994 nx=13995 ny=16 maxbag=11 maxsep=9 lsep=24.3 lbag=31.5
+grid6x4000-K3	deep	gpu	auto	0.0162	0.1494	true	height=8061 nt=22152 nx=67994 ny=9 maxbag=13 maxsep=9 lsep=16.3 lbag=26.6	
+grid6x4000-K3	deep	gpu	levels	0.0162	4.4755	true	height=8061 nt=22152 nx=67994 ny=9 maxbag=13 maxsep=9 lsep=16.3 lbag=26.6	kernel=2.2854 kmax=0.0093 kmaxlev=4236/8062 kmaxitems=243 rounds=56784 nkern=64846
+grid6x4000-K3	deep	gpu	contract	0.0162	0.1512	true	height=8061 nt=22152 nx=67994 ny=9 maxbag=13 maxsep=9 lsep=16.3 lbag=26.6	
+miter-bug-10000	deep	gpu	auto	0.0764	0.0301	true	height=19933 nt=100004 nx=259990 ny=14 maxbag=10 maxsep=7 lsep=8.0 lbag=14.0	
+miter-bug-10000	deep	gpu	levels	0.0764	5.1451	true	height=19933 nt=100004 nx=259990 ny=14 maxbag=10 maxsep=7 lsep=8.0 lbag=14.0	kernel=3.5884 kmax=0.0393 kmaxlev=1083/19934 kmaxitems=2 rounds=19956 nkern=39890
+miter-bug-10000	deep	gpu	contract	0.0764	0.0296	true	height=19933 nt=100004 nx=259990 ny=14 maxbag=10 maxsep=7 lsep=8.0 lbag=14.0	
+miter-bug-30000	deep	gpu	auto	0.5888	0.0937	true	height=48489 nt=300026 nx=779990 ny=14 maxbag=10 maxsep=6 lsep=7.0 lbag=16.0	
+miter-bug-30000	deep	gpu	levels	0.5888	20.1306	true	height=48489 nt=300026 nx=779990 ny=14 maxbag=10 maxsep=6 lsep=7.0 lbag=16.0	kernel=15.4936 kmax=0.0008 kmaxlev=22880/48490 kmaxitems=2 rounds=48517 nkern=97007
+miter-bug-30000	deep	gpu	contract	0.5888	0.1044	true	height=48489 nt=300026 nx=779990 ny=14 maxbag=10 maxsep=6 lsep=7.0 lbag=16.0	
+miter-bug-100000	deep	gpu	auto	1.8318	0.343	true	height=231018 nt=1000326 nx=2599990 ny=14 maxbag=10 maxsep=6 lsep=7.0 lbag=16.0	
+miter-bug-100000	deep	gpu	levels	1.8318	skip		height=231018 nt=1000326 nx=2599990 ny=14 maxbag=10 maxsep=6 lsep=7.0 lbag=16.0
+miter-bug-100000	deep	gpu	contract	1.8318	0.385	true	height=231018 nt=1000326 nx=2599990 ny=14 maxbag=10 maxsep=6 lsep=7.0 lbag=16.0	
+miter-eq-30000	deep	gpu	auto	0.409	0.0975	true	height=45545 nt=359992 nx=839988 ny=14 maxbag=8 maxsep=7 lsep=8.0 lbag=11.0	
+miter-eq-30000	deep	gpu	levels	0.409	14.8383	true	height=45545 nt=359992 nx=839988 ny=14 maxbag=8 maxsep=7 lsep=8.0 lbag=11.0	kernel=10.8741 kmax=0.0549 kmaxlev=42772/45546 kmaxitems=1 rounds=45574 nkern=91120
+miter-eq-30000	deep	gpu	contract	0.409	0.0977	true	height=45545 nt=359992 nx=839988 ny=14 maxbag=8 maxsep=7 lsep=8.0 lbag=11.0	
+pk3-n500-K4	small	gpu	auto	0.0006	0.013	true	height=16 nt=457 nx=1686 ny=16 maxbag=14 maxsep=9 lsep=25.9 lbag=43.8	
+pk3-n500-K4	small	gpu	levels	0.0006	0.0129	true	height=16 nt=457 nx=1686 ny=16 maxbag=14 maxsep=9 lsep=25.9 lbag=43.8	kernel=0.0086 kmax=0.001 kmaxlev=13/17 kmaxitems=1 rounds=70 nkern=87
+pk3-n500-K4	small	gpu	contract	0.0006	skip		height=16 nt=457 nx=1686 ny=16 maxbag=14 maxsep=9 lsep=25.9 lbag=43.8
+grid4x200-K3	small	gpu	auto	0.0005	0.0031	true	height=779 nt=796 nx=2196 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	
+grid4x200-K3	small	gpu	levels	0.0005	0.398	true	height=779 nt=796 nx=2196 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	kernel=0.3437 kmax=0.0007 kmaxlev=282/780 kmaxitems=1 rounds=783 nkern=1563
+grid4x200-K3	small	gpu	contract	0.0005	0.0031	true	height=779 nt=796 nx=2196 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	
+miter-bug-1000	small	gpu	auto	0.009	0.0073	true	height=1402 nt=9997 nx=25990 ny=14 maxbag=10 maxsep=6 lsep=7.0 lbag=13.0	
+miter-bug-1000	small	gpu	levels	0.009	0.5228	true	height=1402 nt=9997 nx=25990 ny=14 maxbag=10 maxsep=6 lsep=7.0 lbag=13.0	kernel=0.4114 kmax=0.0008 kmaxlev=572/1403 kmaxitems=2 rounds=1425 nkern=2828
+miter-bug-1000	small	gpu	contract	0.009	0.0072	true	height=1402 nt=9997 nx=25990 ny=14 maxbag=10 maxsep=6 lsep=7.0 lbag=13.0	
+pk3-n200-K4	sweep	gpu	auto	0.0002	0.0068	true	height=9 nt=180 nx=669 ny=16 maxbag=13 maxsep=6 lsep=16.8 lbag=38.7	
+pk3-n200-K4	sweep	gpu	levels	0.0002	0.0067	true	height=9 nt=180 nx=669 ny=16 maxbag=13 maxsep=6 lsep=16.8 lbag=38.7	kernel=0.0043 kmax=0.0011 kmaxlev=7/10 kmaxitems=2 rounds=46 nkern=56
+pk3-n200-K4	sweep	gpu	contract	0.0002	0.0031	true	height=9 nt=180 nx=669 ny=16 maxbag=13 maxsep=6 lsep=16.8 lbag=38.7	
+pk3-n2000-K4	sweep	gpu	auto	0.003	0.0169	true	height=18 nt=1831 nx=6835 ny=16 maxbag=14 maxsep=9 lsep=25.9 lbag=45.4	
+pk3-n2000-K4	sweep	gpu	levels	0.003	0.0169	true	height=18 nt=1831 nx=6835 ny=16 maxbag=14 maxsep=9 lsep=25.9 lbag=45.4	kernel=0.0098 kmax=0.0009 kmaxlev=13/19 kmaxitems=1 rounds=110 nkern=129
+pk3-n2000-K4	sweep	gpu	contract	0.003	skip		height=18 nt=1831 nx=6835 ny=16 maxbag=14 maxsep=9 lsep=25.9 lbag=45.4
+pk3-n5000-K4	sweep	gpu	auto	0.0075	0.0217	true	height=21 nt=4600 nx=17019 ny=16 maxbag=14 maxsep=9 lsep=25.9 lbag=43.8	
+pk3-n5000-K4	sweep	gpu	levels	0.0075	0.0217	true	height=21 nt=4600 nx=17019 ny=16 maxbag=14 maxsep=9 lsep=25.9 lbag=43.8	kernel=0.0125 kmax=0.0007 kmaxlev=18/22 kmaxitems=1 rounds=130 nkern=152
+pk3-n5000-K4	sweep	gpu	contract	0.0075	skip		height=21 nt=4600 nx=17019 ny=16 maxbag=14 maxsep=9 lsep=25.9 lbag=43.8
+pk3-n300-G30-Boolean	sweep	gpu	auto	0.0004	0.0235	true	height=12 nt=276 nx=1011 ny=274 maxbag=14 maxsep=6 lsep=38.5 lbag=98.9	
+pk3-n300-G30-Boolean	sweep	gpu	levels	0.0004	0.0235	true	height=12 nt=276 nx=1011 ny=274 maxbag=14 maxsep=6 lsep=38.5 lbag=98.9	kernel=0.0176 kmax=0.0024 kmaxlev=1/13 kmaxitems=171354 rounds=69 nkern=82
+pk3-n300-G30-Boolean	sweep	gpu	contract	0.0004	skip		height=12 nt=276 nx=1011 ny=274 maxbag=14 maxsep=6 lsep=38.5 lbag=98.9
+pk3-n300-G30-Lawvere	sweep	gpu	auto	0.0003	0.1083	641.4600000000002	height=12 nt=276 nx=1011 ny=274 maxbag=14 maxsep=6 lsep=38.5 lbag=98.9	
+pk3-n300-G30-Lawvere	sweep	gpu	levels	0.0003	0.1082	641.4600000000002	height=12 nt=276 nx=1011 ny=274 maxbag=14 maxsep=6 lsep=38.5 lbag=98.9	kernel=-1.0 kmax=-1.0 kmaxlev=-1/-1 kmaxitems=-1 rounds=-1 nkern=-1
+pk3-n300-G30-Lawvere	sweep	gpu	contract	0.0003	skip		height=12 nt=276 nx=1011 ny=274 maxbag=14 maxsep=6 lsep=38.5 lbag=98.9
+pk3-n300-G30-Probability	sweep	gpu	auto	0.0003	0.1086	1.3842958417703156e-279	height=12 nt=276 nx=1011 ny=274 maxbag=14 maxsep=6 lsep=38.5 lbag=98.9	
+pk3-n300-G30-Probability	sweep	gpu	levels	0.0003	0.1083	1.3842958417703156e-279	height=12 nt=276 nx=1011 ny=274 maxbag=14 maxsep=6 lsep=38.5 lbag=98.9	kernel=-1.0 kmax=-1.0 kmaxlev=-1/-1 kmaxitems=-1 rounds=-1 nkern=-1
+pk3-n300-G30-Probability	sweep	gpu	contract	0.0003	skip		height=12 nt=276 nx=1011 ny=274 maxbag=14 maxsep=6 lsep=38.5 lbag=98.9
+pk3-n1000-G30-Boolean	sweep	gpu	auto	0.0013	0.0599	true	height=14 nt=920 nx=3380 ny=312 maxbag=14 maxsep=6 lsep=39.1 lbag=104.3	
+pk3-n1000-G30-Boolean	sweep	gpu	levels	0.0013	0.0597	true	height=14 nt=920 nx=3380 ny=312 maxbag=14 maxsep=6 lsep=39.1 lbag=104.3	kernel=0.051 kmax=0.0066 kmaxlev=12/15 kmaxitems=439 rounds=86 nkern=101
+pk3-n1000-G30-Boolean	sweep	gpu	contract	0.0013	skip		height=14 nt=920 nx=3380 ny=312 maxbag=14 maxsep=6 lsep=39.1 lbag=104.3
+pk3-n1000-G30-Lawvere	sweep	gpu	auto	0.0013	0.7186	1793.1699999999998	height=14 nt=920 nx=3380 ny=312 maxbag=14 maxsep=6 lsep=39.1 lbag=104.3	
+pk3-n1000-G30-Lawvere	sweep	gpu	levels	0.0013	0.7177	1793.1699999999998	height=14 nt=920 nx=3380 ny=312 maxbag=14 maxsep=6 lsep=39.1 lbag=104.3	kernel=-1.0 kmax=-1.0 kmaxlev=-1/-1 kmaxitems=-1 rounds=-1 nkern=-1
+pk3-n1000-G30-Lawvere	sweep	gpu	contract	0.0013	skip		height=14 nt=920 nx=3380 ny=312 maxbag=14 maxsep=6 lsep=39.1 lbag=104.3
+pk3-n1000-G30-Probability	sweep	gpu	auto	0.0013	0.1863	0.0	height=14 nt=920 nx=3380 ny=312 maxbag=14 maxsep=6 lsep=39.1 lbag=104.3	
+pk3-n1000-G30-Probability	sweep	gpu	levels	0.0013	0.1872	0.0	height=14 nt=920 nx=3380 ny=312 maxbag=14 maxsep=6 lsep=39.1 lbag=104.3	kernel=0.1811 kmax=0.0429 kmaxlev=6/15 kmaxitems=27183 rounds=79 nkern=79
+pk3-n1000-G30-Probability	sweep	gpu	contract	0.0013	skip		height=14 nt=920 nx=3380 ny=312 maxbag=14 maxsep=6 lsep=39.1 lbag=104.3
+pk3-n3000-G30-Boolean	sweep	gpu	auto	0.0048	0.0986	true	height=17 nt=2770 nx=10193 ny=284 maxbag=14 maxsep=8 lsep=51.6 lbag=99.5	
+pk3-n3000-G30-Boolean	sweep	gpu	levels	0.0048	0.1005	true	height=17 nt=2770 nx=10193 ny=284 maxbag=14 maxsep=8 lsep=51.6 lbag=99.5	kernel=0.0916 kmax=0.0297 kmaxlev=1/18 kmaxitems=2258369 rounds=105 nkern=123
+pk3-n3000-G30-Boolean	sweep	gpu	contract	0.0048	skip		height=17 nt=2770 nx=10193 ny=284 maxbag=14 maxsep=8 lsep=51.6 lbag=99.5
+pk3-n10000-G30-Boolean	sweep	gpu	auto	0.0187	0.2301	true	height=18 nt=9212 nx=34011 ny=282 maxbag=14 maxsep=9 lsep=59.5 lbag=102.5	
+pk3-n10000-G30-Boolean	sweep	gpu	levels	0.0187	0.2314	true	height=18 nt=9212 nx=34011 ny=282 maxbag=14 maxsep=9 lsep=59.5 lbag=102.5	kernel=0.213 kmax=0.0794 kmaxlev=1/19 kmaxitems=3206469 rounds=119 nkern=138
+pk3-n10000-G30-Boolean	sweep	gpu	contract	0.0187	skip		height=18 nt=9212 nx=34011 ny=282 maxbag=14 maxsep=9 lsep=59.5 lbag=102.5
+pk3-n10000-G30-Lawvere	sweep	gpu	auto	0.0183	1.091	17991.859999999997	height=18 nt=9212 nx=34011 ny=282 maxbag=14 maxsep=9 lsep=59.5 lbag=102.5	
+pk3-n10000-G30-Lawvere	sweep	gpu	levels	0.0183	1.0852	17991.859999999997	height=18 nt=9212 nx=34011 ny=282 maxbag=14 maxsep=9 lsep=59.5 lbag=102.5	kernel=-1.0 kmax=-1.0 kmaxlev=-1/-1 kmaxitems=-1 rounds=-1 nkern=-1
+pk3-n10000-G30-Lawvere	sweep	gpu	contract	0.0183	skip		height=18 nt=9212 nx=34011 ny=282 maxbag=14 maxsep=9 lsep=59.5 lbag=102.5
+pk3-n10000-G30-Probability	sweep	gpu	auto	0.0183	0.4396	0.0	height=18 nt=9212 nx=34011 ny=282 maxbag=14 maxsep=9 lsep=59.5 lbag=102.5	
+pk3-n10000-G30-Probability	sweep	gpu	levels	0.0183	0.4373	0.0	height=18 nt=9212 nx=34011 ny=282 maxbag=14 maxsep=9 lsep=59.5 lbag=102.5	kernel=0.4543 kmax=0.1314 kmaxlev=1/19 kmaxitems=3206469 rounds=65 nkern=65
+pk3-n10000-G30-Probability	sweep	gpu	contract	0.0183	skip		height=18 nt=9212 nx=34011 ny=282 maxbag=14 maxsep=9 lsep=59.5 lbag=102.5
+pk4-n1000-G40-Lawvere	sweep	gpu	auto	0.002	0.9597	1790.4399999999998	height=19 nt=922 nx=3803 ny=538 maxbag=18 maxsep=13 lsep=98.3 lbag=139.5	
+pk4-n1000-G40-Lawvere	sweep	gpu	levels	0.002	0.9982	1790.4399999999998	height=19 nt=922 nx=3803 ny=538 maxbag=18 maxsep=13 lsep=98.3 lbag=139.5	kernel=-1.0 kmax=-1.0 kmaxlev=-1/-1 kmaxitems=-1 rounds=-1 nkern=-1
+pk4-n1000-G40-Lawvere	sweep	gpu	contract	0.002	skip		height=19 nt=922 nx=3803 ny=538 maxbag=18 maxsep=13 lsep=98.3 lbag=139.5
+pk4-n1000-G40-Probability	sweep	gpu	auto	0.0019	0.7804	0.0	height=19 nt=922 nx=3803 ny=538 maxbag=18 maxsep=13 lsep=98.3 lbag=139.5	
+pk4-n1000-G40-Probability	sweep	gpu	levels	0.0019	0.8051	0.0	height=19 nt=922 nx=3803 ny=538 maxbag=18 maxsep=13 lsep=98.3 lbag=139.5	kernel=0.8275 kmax=0.1589 kmaxlev=2/20 kmaxitems=1711762 rounds=74 nkern=74
+pk4-n1000-G40-Probability	sweep	gpu	contract	0.0019	skip		height=19 nt=922 nx=3803 ny=538 maxbag=18 maxsep=13 lsep=98.3 lbag=139.5
+grid4x50-K3	sweep	gpu	auto	0.0001	0.0949	true	height=179 nt=196 nx=546 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	
+grid4x50-K3	sweep	gpu	levels	0.0001	0.0946	true	height=179 nt=196 nx=546 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	kernel=0.0821 kmax=0.0008 kmaxlev=3/180 kmaxitems=2 rounds=183 nkern=363
+grid4x50-K3	sweep	gpu	contract	0.0001	0.003	true	height=179 nt=196 nx=546 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	
+grid4x1000-K3	sweep	gpu	auto	0.0021	0.0043	true	height=3977 nt=3996 nx=10996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	
+grid4x1000-K3	sweep	gpu	levels	0.0021	2.0112	true	height=3977 nt=3996 nx=10996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	kernel=1.7385 kmax=0.0008 kmaxlev=3/3978 kmaxitems=2 rounds=3981 nkern=7959
+grid4x1000-K3	sweep	gpu	contract	0.0021	0.0045	true	height=3977 nt=3996 nx=10996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	
+grid4x5000-K3	sweep	gpu	auto	0.01	0.0094	true	height=19985 nt=19996 nx=54996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	
+grid4x5000-K3	sweep	gpu	levels	0.01	10.2864	true	height=19985 nt=19996 nx=54996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	kernel=8.7905 kmax=0.0007 kmaxlev=4/19986 kmaxitems=1 rounds=19986 nkern=39972
+grid4x5000-K3	sweep	gpu	contract	0.01	0.0096	true	height=19985 nt=19996 nx=54996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	
+grid4x20000-K3	sweep	gpu	auto	0.0393	0.0282	true	height=79974 nt=79996 nx=219996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	
+grid4x20000-K3	sweep	gpu	levels	0.0393	skip		height=79974 nt=79996 nx=219996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3
+grid4x20000-K3	sweep	gpu	contract	0.0393	0.0285	true	height=79974 nt=79996 nx=219996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	
+grid4x20000-K3-Lawvere	sweep	gpu	auto	0.0723	0.1445	273200.31000000006	height=79974 nt=79996 nx=219996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	
+grid4x20000-K3-Lawvere	sweep	gpu	levels	0.0723	skip		height=79974 nt=79996 nx=219996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3
+grid4x20000-K3-Lawvere	sweep	gpu	contract	0.0723	0.1444	273200.31000000006	height=79974 nt=79996 nx=219996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	
+grid4x20000-K3-Probability	sweep	gpu	auto	0.0415	0.1166	0.0	height=79974 nt=79996 nx=219996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	
+grid4x20000-K3-Probability	sweep	gpu	levels	0.0415	skip		height=79974 nt=79996 nx=219996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3
+grid4x20000-K3-Probability	sweep	gpu	contract	0.0415	0.1108	0.0	height=79974 nt=79996 nx=219996 ny=9 maxbag=9 maxsep=7 lsep=14.1 lbag=19.3	
+grid6x1000-K3-Lawvere	sweep	gpu	auto	0.0042	1.1293	20678.409999999974	height=2002 nt=5518 nx=16994 ny=9 maxbag=12 maxsep=9 lsep=16.3 lbag=24.0	
+grid6x1000-K3-Lawvere	sweep	gpu	levels	0.0042	1.1152	20678.409999999974	height=2002 nt=5518 nx=16994 ny=9 maxbag=12 maxsep=9 lsep=16.3 lbag=24.0	kernel=-1.0 kmax=-1.0 kmaxlev=-1/-1 kmaxitems=-1 rounds=-1 nkern=-1
+grid6x1000-K3-Lawvere	sweep	gpu	contract	0.0042	1.1532	20678.409999999974	height=2002 nt=5518 nx=16994 ny=9 maxbag=12 maxsep=9 lsep=16.3 lbag=24.0	
+grid6x1000-K3-Probability	sweep	gpu	auto	0.0042	0.2605	0.0	height=2002 nt=5518 nx=16994 ny=9 maxbag=12 maxsep=9 lsep=16.3 lbag=24.0	
+grid6x1000-K3-Probability	sweep	gpu	levels	0.0042	0.2358	0.0	height=2002 nt=5518 nx=16994 ny=9 maxbag=12 maxsep=9 lsep=16.3 lbag=24.0	kernel=0.1317 kmax=0.0049 kmaxlev=7/2003 kmaxitems=2 rounds=2857 nkern=2857
+grid6x1000-K3-Probability	sweep	gpu	contract	0.0042	0.2629	0.0	height=2002 nt=5518 nx=16994 ny=9 maxbag=12 maxsep=9 lsep=16.3 lbag=24.0	
+miter-bug-100	sweep	gpu	auto	0.0008	0.0562	true	height=143 nt=998 nx=2590 ny=14 maxbag=10 maxsep=6 lsep=7.0 lbag=13.0	
+miter-bug-100	sweep	gpu	levels	0.0008	0.0558	true	height=143 nt=998 nx=2590 ny=14 maxbag=10 maxsep=6 lsep=7.0 lbag=13.0	kernel=0.0436 kmax=0.0008 kmaxlev=81/144 kmaxitems=2 rounds=166 nkern=310
+miter-bug-100	sweep	gpu	contract	0.0008	0.0038	true	height=143 nt=998 nx=2590 ny=14 maxbag=10 maxsep=6 lsep=7.0 lbag=13.0	
+miter-bug-300	sweep	gpu	auto	0.0022	0.0045	true	height=342 nt=2996 nx=7790 ny=14 maxbag=8 maxsep=6 lsep=7.0 lbag=12.0	
+miter-bug-300	sweep	gpu	levels	0.0022	0.1369	true	height=342 nt=2996 nx=7790 ny=14 maxbag=8 maxsep=6 lsep=7.0 lbag=12.0	kernel=0.1084 kmax=0.0008 kmaxlev=91/343 kmaxitems=2 rounds=365 nkern=708
+miter-bug-300	sweep	gpu	contract	0.0022	0.0045	true	height=342 nt=2996 nx=7790 ny=14 maxbag=8 maxsep=6 lsep=7.0 lbag=12.0	
+miter-bug-3000	sweep	gpu	auto	0.0212	0.0128	true	height=6009 nt=29995 nx=77990 ny=14 maxbag=10 maxsep=6 lsep=7.0 lbag=16.0	
+miter-bug-3000	sweep	gpu	levels	0.0212	1.8782	true	height=6009 nt=29995 nx=77990 ny=14 maxbag=10 maxsep=6 lsep=7.0 lbag=16.0	kernel=1.4125 kmax=0.0008 kmaxlev=391/6010 kmaxitems=2 rounds=6032 nkern=12042
+miter-bug-3000	sweep	gpu	contract	0.0212	0.0127	true	height=6009 nt=29995 nx=77990 ny=14 maxbag=10 maxsep=6 lsep=7.0 lbag=16.0	
+many24-pk3-n20000	many	gpu	batched	0	0.1269	11
+many24-pk3-n20000	many	gpu	auto-each	0	0.6079	11
+many24-grid4x2000	many	gpu	batched	0	6.2057	24
+many24-grid4x2000	many	gpu	auto-each	0	17.1708	24
