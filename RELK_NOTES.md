@@ -25,12 +25,16 @@ Code:
 
 ## The `:auto` rule (`RelKernel.prefer`, per bag, at run time)
 
-`contract!` assigns a bag from the end: the separator first (k = m, ..., 1), then the residual. relk plans a whole-bag order with a DP over subsets, using a fanout model `fan(k, S)`. The model estimates the candidates of element k given the assigned set S from four sources: the image of an assigned element (1), preimages (|Y(k)| / |Y(z)|), the pair index, and the child-table ranges. A filter on the default order's cost decides between the two:
+`contract!` assigns a bag from the end: the separator first (k = m, ..., 1), then the residual. relk plans a whole-bag order with a DP over subsets, using a fanout model `fan(k, S)`. The model estimates the candidates of element k given the assigned set S from the image of an assigned element, preimages, the pair index, and child-table ranges. The rule has four steps:
 
-1. **Cheap bound, no allocation.** Cost of the default order m..1 counting only arcs: 1 candidate when an assigned element points to k, |Y(k)| / |Y(z)| when k points to an assigned z, |Y(k)| otherwise. Child tables only lower this. If it is ≤ τ = 1e6 visited partial assignments, use `contract!`. Truth tables and K_q targets (sorts of 2–64 elements) stop here.
-2. **Model comparison.** Build the bag and compute `cdef = ordercost(m:-1:1)` and `crel = plan(...)`'s DP cost, both under the same fanout model including children. Use relk iff `cdef > τ` and `cdef > ρ · crel`, with ρ = 8.
+0. **Sort-size gate.** Only bags with some target sort of at least `MINSORT[]` = 2048 elements are considered. Small, dense targets (K_q, G(40, 0.3), truth tables) keep `contract!`, whose separator-first order follows the children's key order. Without this gate the model sent 250–350 bags of pk6-n5000 → K7 and pk4-n1000 → G40 to relk and lost 1.6× (relk alone is 7–13× slower there).
+1. **Cheap bound, no allocation.** The default order's cost counting only arcs (1 candidate when an assigned element points to k, |Y(k)| / |Y(z)| when k points to an assigned z, |Y(k)| otherwise). If it is ≤ `TAU[]` = 1e6 visited partial assignments, use `contract!`.
+2. **Model comparison.**
+   - `cdef = ordercost(m:-1:1; pairs=false)`: contract! has no pair index, so an element pointing to two assigned elements costs a scan of one preimage list, not a pair lookup. With the pair-index model the triangle bag scored only 5.3× (2.5e7 vs 4.7e6), while it really runs 10–15× slower.
+   - `crel` = the plan's DP cost, plus `AGG[]` = 4 per emitted row when the bag has a separator (relk emits a row per complete assignment and aggregates them).
+3. **Choice.** Use relk iff `cdef > TAU[]` and `cdef > RATIO[] · crel`, with `RATIO[]` = 4.
 
-τ and ρ are `RelKernel.TAU[]` / `RATIO[]`. Bags with more than 62 elements, or with an empty bag, keep `contract!`. The model is not fitted to a machine: it counts visited assignments.
+Bags with more than 62 elements keep `contract!`. `RelKernel.DECISIONS` counts [bags asked, bags sent to relk] for diagnostics.
 
 ## Validation (`test/relk.jl`; `julia -t N --project=test test/relk.jl`)
 
@@ -40,7 +44,7 @@ This is the showcase's test plus `:auto`. Every score is compared with the defau
 |---|---|---|---|
 | small random graph homs, 300 trials, kept when (mY+1)^mX · nY^k ≤ 1e8 | 163 × 4 semirings (Probability, Boolean, Probability with integer weights 0–2, Lawvere with Inf/integer weights on vertices and edges) = 652 | relk serial, relk N threads, auto serial, auto N threads | 652 / 652 |
 | large random (nY 50–400, mY 100–2000, k 2–5), 40 trials | 40 × 3 semirings = 120 | same | 120 / 120 (exact `==`; the showcase used `≈` here) |
-| `:auto` forced to relk at every bag (τ = ρ = 0) and forced off (τ = ρ = ∞) | 92 × 2 semirings each | same | 184 / 184 each |
+| `:auto` forced to relk at every bag (τ = ρ = MINSORT = 0) and forced off (τ = ρ = ∞) | 92 × 2 semirings each | same | 184 / 184 each |
 | witness through `color`, kernel-name check | | | ok |
 
 The suite passes on the laptop at 4 threads and on HPG (hpg-turin, job 50859190) at 1 and 8 threads: `ALL OK 1140` each.
@@ -49,7 +53,7 @@ The suite passes on the laptop at 4 threads and on HPG (hpg-turin, job 50859190)
 
 `bench/bench.jl SUITE CASE KERNEL` runs one case with one kernel. `bench/run_cases.sh` runs each case with `default`, `relk` and `auto` in separate processes and kills each after a timeout. Every kernel uses the eager search, nthreads = 1. Times are warm (min of 2), search only (`score`, including relabeling Y). Decomposition is listed separately.
 
-Jobs (submitted Nov 11): tests 50859190 (done, pass); LSQB SF0.1 50859191, SF1 50859192; hom 50859193–97 (grqc, wikivote, hepth, enron, epinions × path4, cycle3–6, ladder4); miters 50859198 (eq/bug 10k, 30k; Lawvere and Boolean, MMD); CSP/K_q 50859199 (pk3-n500-K4, pk4-n20000-K5, pk5-n20000-K6, pk6-n5000-K7, pk3-n5000-G30, pk4-n1000-G40, grid6x1000-K3, grid5x1000-K4, grid4x20000-K3; Boolean, Probability, Lawvere). Results land in `/blue/fairbanksj/itaykadosh/gpu/csets/res/relk/`.
+Jobs (submitted Nov 11): tests 50859190 (done, pass); LSQB SF0.1 50859191, SF1 50859192; hom 50859193–97 (grqc, wikivote, hepth, enron, epinions × path4, cycle3–6, ladder4); miters 50859198 (eq/bug 10k, 30k; Lawvere and Boolean, MMD); CSP/K_q 50859199 (pk3-n500-K4, pk4-n20000-K5, pk5-n20000-K6, pk6-n5000-K7, pk3-n5000-G30, pk4-n1000-G40, grid6x1000-K3, grid5x1000-K4, grid4x20000-K3; Boolean, Probability, Lawvere). Results land in `/blue/fairbanksj/itaykadosh/gpu/csets/res/relk/`. Those jobs ran the first `:auto` rule (pair-index model, ratio 8, no gate) until 14:11 on Nov 11, when the current rule was synced. Their `default` and `relk` rows are valid throughout. Auto-only reruns with the current rule: 50872788 (LSQB SF0.1), 50872789 (SF1), 50872790 (hom), 50872791 (miters), 50872792 (CSP).
 
 Results: pending (tables to be filled from those files).
 
