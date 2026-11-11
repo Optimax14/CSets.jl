@@ -7,7 +7,8 @@
 # The forward pass visits the nodes in postorder. At each node, the
 # decomposition is restricted to a contraction, the arguments (the
 # children's tables, in place, and the weights of the bag, copied) are
-# gathered, and the local problem is solved by contract!. The tables
+# gathered, and the local problem is solved by contract! (or by the
+# relk kernel K: for every bag, or, with auto, where it is preferred). The tables
 # live on a stack: the children's tables are on top, the table of the
 # node is written above them and then moved down over them. For a
 # witness, contract! also writes back-pointers to the factor.
@@ -28,6 +29,8 @@ function eager(
         xwgt,
         wgt,
         fac,
+        K = nothing,
+        auto::Bool = false,
     ) where {I}
     if isnothing(wgt)
         T = valtype(R)
@@ -95,7 +98,15 @@ function eager(
     for t in oneto(nt)
         C = restrict!(D, pos, xadj, adjncy, vtx, arc, sxadj, sadjncy, t)
         lwgt = gather!(D, xtab, vtab, ncol, xwgt, wgt, ckey, cval, ccol, lxwgt, lwgt, t)
-        n, nf = contract!(R, C, Y, pre, base, typ, lxwgt, lwgt, ckey, cval, ccol, tab, tval, tab, tval, ntab, nval, fac, nfac, work)
+        #
+        # the local problem: the relk kernel when it is selected (for
+        # every bag, or by its cost estimate with auto), else contract!
+        #
+        if !isnothing(K) && (!auto || RelKernel.prefer(C, typ, view(ccol, oneto(C.sep.nu)), T))
+            n, nf = K(R, C, Y, pre, base, typ, lxwgt, lwgt, ckey, cval, ccol, tab, tval, tab, tval, ntab, nval, fac, nfac)
+        else
+            n, nf = contract!(R, C, Y, pre, base, typ, lxwgt, lwgt, ckey, cval, ccol, tab, tval, tab, tval, ntab, nval, fac, nfac, work)
+        end
 
         if iszero(n)
             return szero(R, T), nothing

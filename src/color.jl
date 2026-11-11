@@ -18,6 +18,34 @@
 @enum Strategy Eager Lazy
 
 #
+# The kernel solves the local problem at each node of the eager search:
+#
+#   - :default  contract!, which assigns a bag separator-first
+#   - :relk     the output-sensitive kernel of relkernel.jl, which
+#               assigns the whole bag in a planned order and aggregates
+#               the rows (for large targets: databases, big graphs)
+#   - :auto     :relk at the bags where contract! is estimated to visit
+#               many more partial assignments (RelKernel.prefer), and
+#               :default elsewhere
+#
+# :relk and :auto compute scores only; color uses :default. With
+# kernel = :relk and no strategy given, the strategy is Eager (the lazy
+# search always uses the default kernel). nthreads is the number of
+# threads of the relk kernel.
+#
+const KERNELS = (:default, :relk, :auto)
+
+function resolve(R::AbstractSemiring, strategy, kernel::Symbol)
+    kernel in KERNELS || throw(ArgumentError("unknown kernel $kernel; expected one of $KERNELS"))
+
+    if isnothing(strategy)
+        return kernel == :relk ? Eager : default_strategy(R)
+    end
+
+    return strategy
+end
+
+#
 # The default strategy: Lazy for the Boolean semiring, and Eager
 # otherwise.
 #
@@ -29,13 +57,13 @@ function default_strategy(R::AbstractSemiring)
     end
 end
 
-function score(R::AbstractSemiring, W, X::Instance{I}, S::Span{I}, Y::Instance{I}; strategy::Strategy = default_strategy(R), kw...) where {I}
+function score(R::AbstractSemiring, W, X::Instance{I}, S::Span{I}, Y::Instance{I}; strategy::Union{Strategy, Nothing} = nothing, kernel::Symbol = :default, nthreads::Integer = 1, kw...) where {I}
     D = decomposition(X, S; kw...)
-    return score(R, W, D, Y; strategy)
+    return score(R, W, D, Y; strategy, kernel, nthreads)
 end
 
-function score(R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}; strategy::Strategy = default_strategy(R)) where {I}
-    value, h = solve(R, W, D, Y, strategy, false)
+function score(R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}; strategy::Union{Strategy, Nothing} = nothing, kernel::Symbol = :default, nthreads::Integer = 1) where {I}
+    value, h = solve(R, W, D, Y, resolve(R, strategy, kernel), false; kernel, nthreads)
     return value
 end
 
@@ -43,14 +71,14 @@ end
 # Find the score and a homomorphism attaining it, or nothing if the
 # score is 0. The semiring must be selective.
 #
-function color(R::AbstractSemiring, W, X::Instance{I}, S::Span{I}, Y::Instance{I}; strategy::Strategy = default_strategy(R), kw...) where {I}
+function color(R::AbstractSemiring, W, X::Instance{I}, S::Span{I}, Y::Instance{I}; strategy::Union{Strategy, Nothing} = nothing, kw...) where {I}
     D = decomposition(X, S; kw...)
     return color(R, W, D, Y; strategy)
 end
 
-function color(R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}; strategy::Strategy = default_strategy(R)) where {I}
+function color(R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}; strategy::Union{Strategy, Nothing} = nothing) where {I}
     @assert isselective(R)
-    return solve(R, W, D, Y, strategy, true)
+    return solve(R, W, D, Y, resolve(R, strategy, :default), true)
 end
 
 #
@@ -92,7 +120,7 @@ end
 # Relabel Y and the weights, and search with the strategy. Unless
 # witness is false, also find a homomorphism attaining the score.
 #
-function solve(R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}, strategy::Strategy, witness::Bool) where {I}
+function solve(R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}, strategy::Strategy, witness::Bool; kernel::Symbol = :default, nthreads::Integer = 1) where {I}
     Y, yord = normalize(Y)
     typ = invvtx(Y)
     base, pre = preimages(Y, typ)
@@ -114,7 +142,13 @@ function solve(R::AbstractSemiring, W, D::Decomposition{I}, Y::Instance{I}, stra
         fac = nothing
     end
 
-    return eager(R, D, Y, yord, pre, base, typ, xwgt, wgt, fac)
+    if witness || kernel == :default
+        K = nothing
+    else
+        K = RelKernel.relkernel(I; nthreads = Int(nthreads))
+    end
+
+    return eager(R, D, Y, yord, pre, base, typ, xwgt, wgt, fac, K, kernel == :auto)
 end
 
 #
