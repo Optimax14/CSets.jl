@@ -1069,6 +1069,7 @@ function color(prep::Prepared{I}, Ys::Vector{<:Instance{I}}; nitems=0, maxround=
     nround = 0
     ev1 = CuEvent(); ev2 = CuEvent()
     tker = 0.0
+    kmax = 0.0; kmaxl = 0; kmaxn = 0
     ntJ = J(nt); nuJ = J(nu)
     t0 = time_ns()
 
@@ -1141,7 +1142,10 @@ function color(prep::Prepared{I}, Ys::Vector{<:Instance{I}}; nitems=0, maxround=
                 @cuda threads=256 blocks=cld(np + 1, 256) reportkernel!(rep, ncol, bagsd, J(np), cnt)
                 copyto!(reph, 1, rep, 1, np + 1)
                 nkern += 1
-                isnothing(stats) || (tker += CUDA.elapsed(ev1, ev2))
+                if !isnothing(stats)
+                    dt = Float64(CUDA.elapsed(ev1, ev2)); tker += dt
+                    dt > kmax && (kmax = dt; kmaxl = l; kmaxn = nitem)
+                end
                 R = Int(reph[np + 1])
                 R <= st.cap && break
                 st = Stage(max(R, 2st.cap), W, VT)
@@ -1172,7 +1176,7 @@ function color(prep::Prepared{I}, Ys::Vector{<:Instance{I}}; nitems=0, maxround=
 
             if all(dead)
                 if !isnothing(stats)
-                    stats[:fwd] = (time_ns() - t0) / 1e9; stats[:ntab] = ntab; stats[:nkern] = nkern; stats[:levels] = length(up); stats[:rounds] = nround; stats[:kernel] = tker
+                    stats[:fwd] = (time_ns() - t0) / 1e9; stats[:ntab] = ntab; stats[:nkern] = nkern; stats[:levels] = length(up); stats[:rounds] = nround; stats[:kernel] = tker; stats[:kmax] = kmax; stats[:kmaxlev] = kmaxl; stats[:kmaxitems] = kmaxn
                 end
 
                 return keep ? nothing : S === nothing ? fill(nothing, k) : [(S.zero, nothing) for _ in 1:k]
@@ -1242,7 +1246,7 @@ function color(prep::Prepared{I}, Ys::Vector{<:Instance{I}}; nitems=0, maxround=
 
     if keep
         if !isnothing(stats)
-            stats[:plan] = tpl / 1e9; stats[:setup] = (t0 - tst) / 1e9; stats[:fwd] = (t1 - t0) / 1e9; stats[:rounds] = nround
+            stats[:plan] = tpl / 1e9; stats[:setup] = (t0 - tst) / 1e9; stats[:fwd] = (t1 - t0) / 1e9; stats[:rounds] = nround; stats[:levels] = length(up); stats[:nkern] = nkern; stats[:kernel] = tker; stats[:kmax] = kmax; stats[:kmaxlev] = kmaxl; stats[:kmaxitems] = kmaxn
         end
 
         return (; tab, xtab, ncol, Pc, yord=yords[1], Y=Yn[1])
@@ -1305,7 +1309,7 @@ function color(prep::Prepared{I}, Ys::Vector{<:Instance{I}}; nitems=0, maxround=
 
     if !isnothing(stats)
         stats[:plan] = tpl / 1e9; stats[:setup] = (t0 - tst) / 1e9; stats[:fwd] = (t1 - t0) / 1e9; stats[:bwd] = (t2 - t1) / 1e9; stats[:ntab] = ntab; stats[:nkern] = nkern
-        stats[:levels] = length(up); stats[:rounds] = nround; stats[:kernel] = tker
+        stats[:levels] = length(up); stats[:rounds] = nround; stats[:kernel] = tker; stats[:kmax] = kmax; stats[:kmaxlev] = kmaxl; stats[:kmaxitems] = kmaxn
         if haskey(stats, :wanttab)
             stats[:ncol] = Array(ncol); stats[:tab] = Array(tab)[1:ntab]; stats[:xtab] = Array(xtab)
         end
